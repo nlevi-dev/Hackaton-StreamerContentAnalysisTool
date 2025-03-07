@@ -43,11 +43,11 @@ def create_metadata_json(json_file, output_json):
                     timestamp_sec = convert_usec_to_seconds(timestamp_usec) if timestamp_usec else None
 
                     extracted_data.append({
-                        "Type of Message": "chatmessage",
-                        "Time Stamp": timestamp_sec,
-                        "Message": chat_data.get("message", {}).get("runs", [{}])[0].get("text", ""),
-                        "Donation Amount": None,
-                        "Author": chat_data.get("authorName", {}).get("simpleText", "")
+                        "messageType": "chatmessage",
+                        "times": timestamp_sec,
+                        "message": chat_data.get("message", {}).get("runs", [{}])[0].get("text", ""),
+                        "donationAmount": None,
+                        "author": chat_data.get("authorName", {}).get("simpleText", "")
                     })
 
                 # Check if it's a donation message
@@ -57,11 +57,11 @@ def create_metadata_json(json_file, output_json):
                     timestamp_sec = convert_usec_to_seconds(timestamp_usec) if timestamp_usec else None
 
                     extracted_data.append({
-                        "Type of Message": "donation",
-                        "Time Stamp": timestamp_sec,
-                        "Message": donation_data.get("message", {}).get("runs", [{}])[0].get("text", ""),
-                        "Donation Amount": donation_data.get("purchaseAmountText", {}).get("simpleText", ""),
-                        "Author": donation_data.get("authorName", {}).get("simpleText", "")
+                        "messageType": "donation",
+                        "times": timestamp_sec,
+                        "message": donation_data.get("message", {}).get("runs", [{}])[0].get("text", ""),
+                        "donationAmount": donation_data.get("purchaseAmountText", {}).get("simpleText", ""),
+                        "author": donation_data.get("authorName", {}).get("simpleText", "")
                     })
 
         except Exception as e:
