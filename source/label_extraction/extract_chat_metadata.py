@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import argparse
 import os
+import datetime
 
 def convert_usec_to_seconds(timestamp_usec):
     """ Converts microseconds to seconds and returns an integer. """
@@ -11,7 +12,44 @@ def convert_usec_to_seconds(timestamp_usec):
     except (ValueError, TypeError):
         return None
 
-def create_metadata_json(json_file, output_json):
+
+def calculate_message_rate(df: pd.DataFrame, min_time: int, max_time: int, window_length: int = 60) -> list[dict]:
+    total_time = max_time - min_time
+    bucket_number = total_time // window_length
+
+    buckets =  [min_time + i * window_length for i in range(bucket_number)]
+    message_rate = {}
+    distinct_author_rate = {}
+    active_user_rates = {}
+    for bucket in buckets:
+        bucket_content = df[(df["times"] >= bucket) & (df["times"] < bucket + window_length)] 
+
+        # Get length
+        length = len(bucket_content)
+        message_rate[bucket] = length
+        
+        # Get distinct authors
+        distinct_author_rate[bucket] = bucket_content["author"].nunique()
+        active_user_rates[bucket] = distinct_author_rate[bucket]/message_rate[bucket]
+    return message_rate, distinct_author_rate, active_user_rates
+        
+
+def calculate_donation_rates(df: pd.DataFrame, min_time: int, max_time: int, window_length: int = 60) -> list[dict]:
+    total_time = max_time - min_time
+    bucket_number = total_time // window_length
+
+    buckets =  [min_time + i * window_length for i in range(bucket_number)]
+    donation_amount_rates = {}
+    donation_rates={}
+    for bucket in buckets:
+        bucket_content = df[(df["times"] >= bucket) & (df["times"] < bucket + window_length)] 
+        donation_amount_rates[bucket] = bucket_content["donationAmount"].sum()
+        donation_rates[bucket] = len(bucket_content)
+    return donation_amount_rates, donation_rates
+
+
+
+def create_metadata_json(json_file, output_json, window_length):
     """
     Extract chat messages and donation data from a JSON file and save them as a CSV.
 
@@ -80,15 +118,70 @@ def create_metadata_json(json_file, output_json):
         json.dump(extracted_data, f, indent=4)
 
     print(f"Extraction complete. Data saved to {output_json}")
+    print("Extracting rates of messages and donations")
+    
+    df = pd.read_json(output_json)
+
+    min_time = df["times"].min()
+    max_time = df["times"].max()
+
+    chatmessage_df = df[df["messageType"]=="chatmessage"]
+
+    donation_df = df[df["messageType"]=="donation"]
+
+    
+
+    message_rate, distinct_author_rate, active_user_rates = calculate_message_rate(df=chatmessage_df, 
+                                                                                min_time=min_time, 
+                                                                                max_time=max_time, 
+                                                                                window_length=window_length)
+    donation_amount_rates, donation_rates = calculate_donation_rates(df=donation_df, 
+                                                                    min_time=min_time, 
+                                                                    max_time=max_time,
+                                                                    window_length=window_length)
+    
+    # Combine into a DataFrame
+    df2 = pd.DataFrame.from_dict(
+        {
+            "message_rate": message_rate,
+            "distinct_author_rate": distinct_author_rate,
+            "active_user_rate": active_user_rates,
+            # "donation_amount_rate": donation_amount_rates,
+            "donation_rate": donation_rates,
+        },
+        orient="index"  # Ensures each dictionary is a row
+    ).T  # Transpose so keys become index
+
+
+
+    df2.index = df2.index - min_time
+    df2.to_csv("./data/labels.csv")
+
+
+    # Normalize each column using min-max scaling
+    df2 = (df2 - df2.min()) / (df2.max() - df2.min())
+
+    # Compute the weighted score
+    df2["score"] = 0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]
+
+    # Find the time steps with the highest score
+    biggest_rows = df2.nlargest(5, "score")
+
+    print(biggest_rows["score"])
+
+    for time in biggest_rows.index:
+        print(str(datetime.timedelta(seconds=time)))
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="Extract chat metadata from JSON and save it as a cleaned JSON.")
     parser.add_argument("json_file", type=str, help="Path to the input JSON file")
     parser.add_argument("output_json", type=str, help="Path to the output JSON file")
-
+    parser.add_argument("-wl", type=int, default=20, help="Length of window for calculating rates")
     args = parser.parse_args()
 
-    create_metadata_json(args.json_file, args.output_json)
+    create_metadata_json(args.json_file, args.output_json, args.wl)
 
 if __name__ == "__main__":
     main()
