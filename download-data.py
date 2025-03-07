@@ -2,6 +2,13 @@ import yt_dlp
 import os
 import argparse
 import stat
+import re
+
+# Function to sanitize file names
+def sanitize_filename(filename):
+    # Replace spaces with underscores and remove special characters
+    filename = filename.replace(' ', '_')
+    return re.sub(r'[^a-zA-Z0-9_]', '', filename)
 
 def download_video_and_chat(url, output_path, index, cookies_file):
     # Create a directory for each video using an integer index
@@ -21,7 +28,7 @@ def download_video_and_chat(url, output_path, index, cookies_file):
         'writeautomaticsub': True,
         'subtitleslangs': ['live_chat'],
         'skip_download': False,
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',  # Ensure MP4 format
+        'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]',  # Ensure Full HD, MP4, and AAC audio
         'cookiefile': cookies_file,
     }
 
@@ -34,12 +41,17 @@ def download_video_and_chat(url, output_path, index, cookies_file):
         # Set permissions to 777 for the downloaded files
         video_file = os.path.join(raw_dir, f"{title}.mp4")
         chat_file = os.path.join(raw_dir, f"{title}.live_chat.json")
+        
+        if title:
+            title_new = sanitize_filename(title)
 
         if os.path.exists(video_file):
             os.chmod(video_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            os.rename(video_file, os.path.join(raw_dir, f"{title_new}.mp4"))
+            
         if os.path.exists(chat_file):
             os.chmod(chat_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-
+            os.rename(chat_file, os.path.join(raw_dir, f"{title_new}.live_chat.json"))
 def main():
     parser = argparse.ArgumentParser(description='Download YouTube videos and chat history.')
     parser.add_argument('input_file', type=str, help='Path to the text file containing video URLs')
