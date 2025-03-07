@@ -3,6 +3,8 @@ import os
 import argparse
 import stat
 import re
+import multiprocessing
+import time
 
 def sanitize_filename(filename):
     """
@@ -35,6 +37,24 @@ def download_video_and_chat(url, output_path, index, cookies_file):
     video_dir = os.path.join(output_path, str(index))
     raw_dir = os.path.join(video_dir, 'raw')
 
+    # Check if "done.txt" exists in the raw directory
+    done_file_path = os.path.join(raw_dir, "done.txt")
+    if os.path.exists(done_file_path):
+        print(f"Skipping download for {index} as 'done.txt' exists.")
+        return
+    else:
+        # Remove the contents of the raw folder if it exists
+        if os.path.exists(raw_dir):
+            for file in os.listdir(raw_dir):
+                file_path = os.path.join(raw_dir, file)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        os.rmdir(file_path)
+                except Exception as e:
+                    print(f"Failed to delete {file_path}. Reason: {e}")
+
     if not os.path.exists(raw_dir):
         os.makedirs(raw_dir)
 
@@ -46,21 +66,26 @@ def download_video_and_chat(url, output_path, index, cookies_file):
         'outtmpl': os.path.join(raw_dir, '%(title)s.%(ext)s'),
         'writesubtitles': True,
         'writeautomaticsub': True,
-        'subtitleslangs': ['live_chat'],
+        'subtitleslangs': ['en', 'live_chat'],
         'skip_download': False,
         'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]',  # Ensure Full HD, MP4, and AAC audio
         'cookiefile': cookies_file,
+        'sleep_interval_subtitles': 10,  # Increase delay to 10 seconds
+        'sleep_interval': 10,
+        'ratelimit': '30M',
+        'download_archive': os.path.join(output_path, 'downloaded_videos.txt'),  # Archive file to track downloaded videos
     }
-
+    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
         title = info_dict.get('title', None)
         ydl.download([url])
-        print(f"Downloaded video and chat for: {url}")
+        print(f"Downloaded video and chat for: {index}")
 
         # Set permissions to 777 for the downloaded files
         video_file = os.path.join(raw_dir, f"{title}.mp4")
         chat_file = os.path.join(raw_dir, f"{title}.live_chat.json")
+        subtitle_file = os.path.join(raw_dir, f"{title}.en.vtt")
         
         if title:
             title_new = sanitize_filename(title)
@@ -72,6 +97,19 @@ def download_video_and_chat(url, output_path, index, cookies_file):
         if os.path.exists(chat_file):
             os.chmod(chat_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
             os.rename(chat_file, os.path.join(raw_dir, f"{title_new}.live_chat.json"))
+
+        if os.path.exists(subtitle_file):
+            os.chmod(subtitle_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            os.rename(subtitle_file, os.path.join(raw_dir, f"{title_new}.en.vtt"))
+
+        # Check if all files have been renamed and create an empty "done" file
+        renamed_video_file = os.path.join(raw_dir, f"{title_new}.mp4")
+        renamed_chat_file = os.path.join(raw_dir, f"{title_new}.live_chat.json")
+        renamed_subtitle_file = os.path.join(raw_dir, f"{title_new}.en.vtt")
+
+        if os.path.exists(renamed_video_file) and os.path.exists(renamed_chat_file) and os.path.exists(renamed_subtitle_file):
+            done_file_path = os.path.join(raw_dir, "done.txt")
+            open(done_file_path, 'w').close()  # Create an empty file
 
 def main():
     """
@@ -90,7 +128,7 @@ def main():
         os.makedirs(args.output_path)
         
     os.chmod(args.output_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-
+    
     with open(args.input_file, 'r') as file:
         urls = file.readlines()
 
@@ -99,8 +137,16 @@ def main():
         if url:
             try:
                 download_video_and_chat(url, args.output_path, index, args.cookies_file)
+                time.sleep(10)
             except Exception as e:
-                print(f"Failed to process {url}: {e}")
+                print(f"Failed to process {e}: {url}")
+
+    # with open(args.input_file, 'r') as file:
+    #     urls = [url.strip() for url in file.readlines() if url.strip()]
+
+    # # Use multiprocessing to download videos concurrently
+    # with multiprocessing.Pool(3) as pool:  # Reduce the number of concurrent processes
+    #     pool.starmap(download_video_and_chat, [(url, args.output_path, index, args.cookies_file) for index, url in enumerate(urls, start=1)])
 
 if __name__ == "__main__":
     main()
