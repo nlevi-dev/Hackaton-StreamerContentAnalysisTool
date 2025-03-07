@@ -26,6 +26,22 @@ def process_videos(base_dir, video_resolution, video_fps):
                 print(f"Extracting images to: {images_dir}")
                 subprocess.run(['ffmpeg', '-i', video_path, '-vf', f'fps={video_fps}, scale={video_resolution}, format=yuv420p', '-threads', '20', '-thread_type', 'slice', image_pattern], check=True)
 
+                # Rename images to reflect when the picture was taken from the video
+                for image_file in os.listdir(images_dir):
+                    if image_file.endswith('.jpg'):
+                        image_path = os.path.join(images_dir, image_file)
+                        # Extract the timestamp from the image filename
+                        frame_number = int(image_file.split('_')[-1].split('.')[0])
+                        # Calculate the timestamp in seconds
+                        timestamp = int(frame_number / float(video_fps))
+                        # Format the timestamp as seconds
+                        timestamp_formatted = f"{timestamp:06}"
+                        # Create the new filename with the timestamp
+                        new_image_file = f"{timestamp_formatted}_{os.path.splitext(file)[0]}.jpg"
+                        new_image_path = os.path.join(images_dir, new_image_file)
+                        # Rename the image file
+                        os.rename(image_path, new_image_path)
+
                 # Set permissions for all images recursively
                 for root, dirs, files in os.walk(images_dir):
                     for image_file in files:
@@ -48,7 +64,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process videos to extract audio and images.')
     parser.add_argument('base_dir', nargs='?', default='/mnt-persist/data', type=str, help='The base directory containing the data folders.')
     parser.add_argument('--video_resolution', type=str, default='1920x1080', help='Video resolution in WxH format.')
-    parser.add_argument('--video_fps', type=str, default='1/5', help='Video fps.')
+    parser.add_argument('--video_fps', type=str, default='0.20', help='Video fps.')
     args = parser.parse_args()
 
     print(f"Starting processing in directory: {args.base_dir}")
