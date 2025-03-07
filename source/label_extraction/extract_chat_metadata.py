@@ -157,12 +157,25 @@ def create_metadata_json(json_file, output_json, window_length):
     df2.index = df2.index - min_time
     df2.to_csv("./data/labels.csv")
 
-
     # Normalize each column using min-max scaling
     df2 = (df2 - df2.min()) / (df2.max() - df2.min())
+    
+    with open("/home/mika/ByborgAI/data/metadata.json") as f:
+        metadata = json.load(f)
+
+    heatmap = metadata["heatmap"]
+
+    def get_score_from_heatmap(time, heatmap):
+        for dict in heatmap:
+            if (dict['start_time'] <= time) & (time < dict['end_time']):
+                return dict['value']
+    
+    df2["heatmap_value"] = df.apply(lambda x: get_score_from_heatmap(x.index, heatmap))
+    
+    print(df2["heatmap_value"])
 
     # Compute the weighted score
-    df2["score"] = 0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]
+    df2["score"] = 0.5 * (0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]) + 0.5 * df2["heatmap_value"]
 
     # Find the time steps with the highest score
     biggest_rows = df2.nlargest(5, "score")
