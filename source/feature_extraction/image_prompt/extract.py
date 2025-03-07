@@ -6,13 +6,14 @@ import numpy as np
 import pandas as pd
 import jaro
 import torch
+from PIL import Image
 from transformers import pipeline, LlavaProcessor, LlavaForConditionalGeneration
 
-# if len(sys.argv) < 2:
-#     print("Usage: extract.py path_to_folder [--debug]")
-#     sys.exit(1)
-# path = sys.argv[1]
-# debug = "--debug" in sys.argv
+if len(sys.argv) < 2:
+    print("Usage: extract.py path_to_folder [--debug]")
+    sys.exit(1)
+path = sys.argv[1]
+debug = "--debug" in sys.argv
 
 def pickle_load(path):
     with open(path,'rb') as f:
@@ -120,58 +121,57 @@ prompts = [
 
 # prompts = prompts[0:6]
 
-pipe = pipeline("image-text-to-text", model="llava-hf/llava-v1.6-mistral-7b-hf")
-# model_name ="llava-hf/llava-v1.6-mistral-7b-hf"
-# model = LlavaForConditionalGeneration.from_pretrained(model_name).cuda()
-# processor = LlavaProcessor.from_pretrained(model_name)
+pipe = pipeline("image-text-to-text", model="llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16)
+pipe.model = torch.compile(pipe.model, mode="max-autotune")
 
-def prompt(image, prompts):
-    # image = processor.image_processor(image, return_tensors="pt")["pixel_values"].cuda()
-    # with torch.no_grad():
-    #     image_embeds = model.encode_images(image)
-
-    results = []
+def prompt(image_path, prompts):
     messages = []
+    pres = []
     for prompt in prompts:
         pre = get_preprompt(prompt[0])
+        pres.append(pre[1])
         txt = pre[0]+' '+prompt[1]
         messages.append([
             {
                 "role": "user",
                 "content": [
-                    {"type": "image", "url": image},
+                    {"type": "image", "url": image_path},
                     {"type": "text", "text": txt},
                 ],
             },
         ])
-
-    print(len(messages))
-    result = pipe(text=messages, max_new_tokens=20, batch_size=len(prompts))#[0]['generated_text'][-1]['content']
-    print(len(result))
-        # result = pre[1](result)
-        # results.append(result)
+    results = pipe(text=messages, max_new_tokens=20, batch_size=len(prompts))
+    for i in range(len(results)):
+        results[i] = pres[i](results[i][0]['generated_text'][-1]['content'])
     return results
 
-prompt('/mnt-persist/test/1/images/000005_Our_New_4500_Workstation_PCs_for_Editing.jpg', prompts)
+# print(prompt('/mnt-persist/test/1/images/000005_Our_New_4500_Workstation_PCs_for_Editing.jpg', prompts))
 
-# images = os.listdir(path+"/images")
-# images = sorted(images)
-
-# os.makedirs(path+"/feature_video", exist_ok=True)
-# if debug:
-#     pd.set_option('display.width',os.get_terminal_size().columns)
-#     os.makedirs(path+"/feature_video_debug", exist_ok=True)
-# def ljust(s):
-#     s = s.astype(str).str.strip()
-#     return s.str.ljust(s.str.len().max())
+images = os.listdir(path+"/images")
+images = sorted(images)
 
 # for i in range(len(images)):
-#     results = prompt(path+"/images/"+images[i], prompts)
-#     pickle_save(path+"/feature_video/"+images[i][:-4]+".pkl",results)
-#     if debug:
-#         prs = np.array([[str(p[0]),str(p[1])] for p in prompts])
-#         prs = np.concatenate([prs,np.array([[str(r) for r in results]]).T],axis=1)
-#         df = pd.DataFrame(prs, columns=['datatype','prompt','value'])
-#         txt = df.apply(ljust).to_string(index=False,justify='left')
-#         text_save(path+"/feature_video_debug/"+images[i][:-4]+".txt",txt)
-#     print(str(i+1)+"/"+str(len(images)))
+#     if i % 12 != 0:
+#         os.remove(path+"/images/"+images[i])
+
+
+# images = images[0:2]
+
+os.makedirs(path+"/feature_video", exist_ok=True)
+if debug:
+    pd.set_option('display.width',os.get_terminal_size().columns)
+    os.makedirs(path+"/feature_video_debug", exist_ok=True)
+def ljust(s):
+    s = s.astype(str).str.strip()
+    return s.str.ljust(s.str.len().max())
+
+for i in range(len(images)):
+    results = prompt(path+"/images/"+images[i], prompts)
+    pickle_save(path+"/feature_video/"+images[i][:-4]+".pkl",results)
+    if debug:
+        prs = np.array([[str(p[0]),str(p[1])] for p in prompts])
+        prs = np.concatenate([prs,np.array([[str(r) for r in results]]).T],axis=1)
+        df = pd.DataFrame(prs, columns=['datatype','prompt','value'])
+        txt = df.apply(ljust).to_string(index=False,justify='left')
+        text_save(path+"/feature_video_debug/"+images[i][:-4]+".txt",txt)
+    print(str(i+1)+"/"+str(len(images)))
