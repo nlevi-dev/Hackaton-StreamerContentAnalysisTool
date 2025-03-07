@@ -11,6 +11,7 @@ transformers = "^4.49.0"
 torch = "^2.6.0"
 pandas = "^2.2.3"
 jaro-winkler = "^2.0.3"
+pillow = "^11.1.0"
 
 
 [build-system]
