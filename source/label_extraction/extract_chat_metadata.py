@@ -3,6 +3,7 @@ import pandas as pd
 import argparse
 import os
 import datetime
+import glob 
 
 def convert_usec_to_seconds(timestamp_usec):
     """ Converts microseconds to seconds and returns an integer. """
@@ -153,9 +154,14 @@ def create_metadata_json(json_file, output_json, window_length):
     ).T  # Transpose so keys become index
 
 
+    # Dynamically determine the processed directory
+    processed_dir = os.path.join(os.path.dirname(json_file), "..", "processed")
+    os.makedirs(processed_dir, exist_ok=True)  # Ensure the directory exists
 
+    # Save CSV file in the processed directory
+    labels_csv_path = os.path.join(processed_dir, "labels.csv")
     df2.index = df2.index - min_time
-    df2.to_csv("./data/labels.csv")
+    df2.to_csv(labels_csv_path)
 
     # Normalize each column using min-max scaling
     df2 = (df2 - df2.min()) / (df2.max() - df2.min())
@@ -189,12 +195,31 @@ def create_metadata_json(json_file, output_json, window_length):
 
 def main():
     parser = argparse.ArgumentParser(description="Extract chat metadata from JSON and save it as a cleaned JSON.")
-    parser.add_argument("json_file", type=str, help="Path to the input JSON file")
-    parser.add_argument("output_json", type=str, help="Path to the output JSON file")
+    parser.add_argument("base_directory", type=str, help="Path to the base directory containing numbered folders")
     parser.add_argument("-wl", type=int, default=20, help="Length of window for calculating rates")
     args = parser.parse_args()
 
-    create_metadata_json(args.json_file, args.output_json, args.wl)
+    base_directory = args.base_directory
+    window_length = args.wl
+
+    # Iterate over all numbered folders inside the base directory
+    for folder in sorted(os.listdir(base_directory)):
+        folder_path = os.path.join(base_directory, folder)
+        
+        # Check if it's a directory
+        if os.path.isdir(folder_path):
+            raw_folder = os.path.join(folder_path, "raw")
+            processed_folder = os.path.join(folder_path, "processed")
+
+            # Create the processed folder if it doesn't exist
+            os.makedirs(processed_folder, exist_ok=True)
+
+            # Process each JSON file in the raw folder
+            json_files = glob.glob(os.path.join(raw_folder, "*.json"))
+            for json_file in json_files:
+                output_json = os.path.join(processed_folder, os.path.basename(json_file))
+                print(f"Processing: {json_file} -> {output_json}")
+                create_metadata_json(json_file, output_json, window_length)
 
 if __name__ == "__main__":
     main()
