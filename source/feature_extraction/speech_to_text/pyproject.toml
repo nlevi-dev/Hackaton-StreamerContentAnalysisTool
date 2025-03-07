@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "speech-to-text"
+version = "0.1.0"
+description = ""
+authors = ["gyori-andris <gyori.andris@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "3.10.*"
+jupyter = "^1.1.1"
+huggingface = "^0.0.1"
+torch = "^2.6.0"
+transformers = "^4.49.0"
+dataset = "^1.6.2"
+datasets = "^3.3.2"
+accelerate = ">=0.26.0"
+librosa = "^0.10.2.post1"
+soundfile = "^0.13.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
