@@ -1,10 +1,30 @@
 import os
-while 'source' not in os.listdir():
-    os.chdir('..')
-
+import sys
 import re
+import _pickle as pickle
+import numpy as np
+import pandas as pd
 import jaro
 from transformers import pipeline
+
+if len(sys.argv) < 2:
+    print("Usage: extract.py path_to_folder [--debug]")
+    sys.exit(1)
+path = sys.argv[1]
+debug = "--debug" in sys.argv
+
+def pickle_load(path):
+    with open(path,'rb') as f:
+        ret = pickle.load(f)
+    return ret
+
+def pickle_save(path, obj):
+    with open(path,'wb') as f:
+        pickle.dump(obj,f)
+
+def text_save(path, txt):
+    with open(path,'w') as f:
+        f.write(txt)
 
 def get_closest_idx(items, candidate):
     m = 0
@@ -113,11 +133,29 @@ def prompt(image, prompts):
                 ],
             },
         ]
-        print(prompt[1])
         result = pipe(text=messages, max_new_tokens=20)[0]['generated_text'][-1]['content']
         result = pre[1](result)
-        print(result)
         results.append(result)
     return results
 
-prompt('test/1/images/000585_Our_New_4500_Workstation_PCs_for_Editing.jpg', prompts)
+images = os.listdir(path+"/images")
+images = sorted(images)
+
+os.makedirs(path+"/feature_video", exist_ok=True)
+if debug:
+    pd.set_option('display.width',os.get_terminal_size().columns)
+    os.makedirs(path+"/feature_video_debug", exist_ok=True)
+def ljust(s):
+    s = s.astype(str).str.strip()
+    return s.str.ljust(s.str.len().max())
+
+for i in range(len(images)):
+    results = prompt(path+"/images/"+images[i], prompts)
+    pickle_save(path+"/feature_video/"+images[i][:-4]+".pkl",results)
+    if debug:
+        prs = np.array([[str(p[0]),str(p[1])] for p in prompts])
+        prs = np.concatenate([prs,np.array([[str(r) for r in results]]).T],axis=1)
+        df = pd.DataFrame(prs, columns=['datatype','prompt','value'])
+        txt = df.apply(ljust).to_string(index=False,justify='left')
+        text_save(path+"/feature_video_debug/"+images[i][:-4]+".txt",txt)
+    print(str(i+1)+"/"+str(len(images)))
