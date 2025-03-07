@@ -186,6 +186,7 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
     else:
         df2["score"] = 0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]
     
+    df2.to_csv(processed_dir + "/df2.csv")
     # Find the time steps with the highest score
     biggest_rows = df2.nlargest(5, "score")
 
@@ -204,8 +205,24 @@ def main():
 
     base_directory = args.base_directory
     window_length = args.wl
-
-    create_metadata_json("/home/mika/ByborgAI/data/comments.json", "./output_json.json", window_length)
+    # Iterate over all numbered folders inside the base directory
+    for folder in sorted(os.listdir(base_directory)):
+        folder_path = os.path.join(base_directory, folder)
+        
+        # Check if it's a directory
+        if os.path.isdir(folder_path):
+            raw_folder = os.path.join(folder_path, "raw")
+            processed_folder = os.path.join(folder_path, "processed")
+    
+        # Create the processed folder if it doesn't exist
+            os.makedirs(processed_folder, exist_ok=True)
+    
+        # Process each JSON file in the raw folder
+            json_files = glob.glob(os.path.join(raw_folder, "*.json"))
+            for json_file in json_files:
+                output_json = os.path.join(processed_folder, os.path.basename(json_file))
+                print(f"Processing: {json_file} -> {output_json}")
+                create_metadata_json(json_file, output_json, window_length)
 
 if __name__ == "__main__":
     main()
