@@ -6,6 +6,17 @@ import multiprocessing
 
 # Function to process video files
 def process_videos(base_dir, video_resolution, video_fps):
+    """
+    Process video files in the specified base directory.
+
+    This function extracts images from video files at a specified resolution and frame rate,
+    and extracts audio to MP3 format. It also sets permissions for the extracted files.
+
+    Parameters:
+    base_dir (str): The base directory containing video directories.
+    video_resolution (str): The resolution for the extracted images in WxH format.
+    video_fps (str): The frames per second for image extraction.
+    """
     audio_files = []
     for video_dir in [f.path for f in os.scandir(base_dir) if f.is_dir()]:
         raw_dir = os.path.join(video_dir, 'raw')
@@ -55,6 +66,15 @@ def process_videos(base_dir, video_resolution, video_fps):
         pool.map(process_audio, audio_files)
 
 def process_audio(inputs):
+    """
+    Process audio extraction from video files.
+
+    This function extracts audio from video files and converts it to MP3 format.
+    It also sets permissions for the extracted audio files.
+
+    Parameters:
+    inputs (tuple): A tuple containing the input video file path and the output audio file path.
+    """
     audio_in, audio_out = inputs
     print(f"Processing audio: {audio_out}")
     subprocess.run(['ffmpeg', '-i', audio_in, '-q:a', '0', '-map', 'a', '-ar', '44100', '-ac', '1', '-threads', '1', audio_out], check=True)
