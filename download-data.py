@@ -70,10 +70,8 @@ def download_video_and_chat(url, output_path, index, cookies_file):
         'skip_download': False,
         'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]',  # Ensure Full HD, MP4, and AAC audio
         'cookiefile': cookies_file,
-        'sleep_interval_subtitles': 10,  # Increase delay to 10 seconds
-        'sleep_interval': 10,
-        'ratelimit': '30M',
-        'download_archive': os.path.join(output_path, 'downloaded_videos.txt'),  # Archive file to track downloaded videos
+        'sleep_interval_subtitles': 1,
+        'sleep_interval': 3,
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
