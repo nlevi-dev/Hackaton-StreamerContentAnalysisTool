@@ -50,7 +50,7 @@ def calculate_donation_rates(df: pd.DataFrame, min_time: int, max_time: int, win
 
 
 
-def create_metadata_json(json_file, output_json, window_length):
+def create_metadata_json(json_file, output_json, window_length, metadata_path=None):
     """
     Extract chat messages and donation data from a JSON file and save them as a CSV.
 
@@ -166,23 +166,26 @@ def create_metadata_json(json_file, output_json, window_length):
     # Normalize each column using min-max scaling
     df2 = (df2 - df2.min()) / (df2.max() - df2.min())
     
-    with open("/home/mika/ByborgAI/data/metadata.json") as f:
-        metadata = json.load(f)
+    if metadata_path != None:
+        with open(metadata_path) as f:
+            metadata = json.load(f)
 
-    heatmap = metadata["heatmap"]
+        heatmap = metadata["heatmap"]
 
-    def get_score_from_heatmap(time, heatmap):
-        for dict in heatmap:
-            if (dict['start_time'] <= time) & (time < dict['end_time']):
-                return dict['value']
+        def get_score_from_heatmap(time, heatmap):
+            for dict in heatmap:
+                print(time)
+                if (dict['start_time'] <= time) & (time < dict['end_time']):
+                    return dict['value']
+        
+        df2["heatmap_value"] = df2.index.to_series().apply(lambda idx: get_score_from_heatmap(idx, heatmap))
+        
+
+        # Compute the weighted score
+        df2["score"] = 0.5 * (0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]) + 0.5 * df2["heatmap_value"]
+    else:
+        df2["score"] = 0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]
     
-    df2["heatmap_value"] = df.apply(lambda x: get_score_from_heatmap(x.index, heatmap))
-    
-    print(df2["heatmap_value"])
-
-    # Compute the weighted score
-    df2["score"] = 0.5 * (0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]) + 0.5 * df2["heatmap_value"]
-
     # Find the time steps with the highest score
     biggest_rows = df2.nlargest(5, "score")
 
@@ -202,24 +205,7 @@ def main():
     base_directory = args.base_directory
     window_length = args.wl
 
-    # Iterate over all numbered folders inside the base directory
-    for folder in sorted(os.listdir(base_directory)):
-        folder_path = os.path.join(base_directory, folder)
-        
-        # Check if it's a directory
-        if os.path.isdir(folder_path):
-            raw_folder = os.path.join(folder_path, "raw")
-            processed_folder = os.path.join(folder_path, "processed")
-
-            # Create the processed folder if it doesn't exist
-            os.makedirs(processed_folder, exist_ok=True)
-
-            # Process each JSON file in the raw folder
-            json_files = glob.glob(os.path.join(raw_folder, "*.json"))
-            for json_file in json_files:
-                output_json = os.path.join(processed_folder, os.path.basename(json_file))
-                print(f"Processing: {json_file} -> {output_json}")
-                create_metadata_json(json_file, output_json, window_length)
+    create_metadata_json("/home/mika/ByborgAI/data/comments.json", "./output_json.json", window_length)
 
 if __name__ == "__main__":
     main()
