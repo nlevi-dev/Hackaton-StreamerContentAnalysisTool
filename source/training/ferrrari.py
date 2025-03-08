@@ -31,12 +31,29 @@ def load_pickles_from_directory(directory_path: str, video_number: int):
     return df
 
 def load_all_videos():
-    finished_videos = [5, 4, 16, 18, 19, 20, 21]
+    finished_videos = [i + 1 for i in range(24) if i + 1 not in [14, 15, 17]]
     df_list = []
     for i in finished_videos:
         df_list.append(load_pickles_from_directory(f"/mnt-persist/data/{i}/feature_video", i))
     return pd.concat(df_list, ignore_index=True)
 
 
+import pandas as pd
+
+def one_hot_encode_list_columns(df, list_columns):
+    """One-hot encode columns containing lists of strings."""
+
+    # This resulted in 1800 columns so we just drop em
+    for col in list_columns:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    return df
+
+
 Berlinetta = load_all_videos()
-Berlinetta.to_csv("/mnt-persist/data/video_features.csv")
+# Example usage
+list_columns = ["wearing", "actions", "components", "tools", "visible_brands"]  # Adjust based on your actual data
+Berlinetta = one_hot_encode_list_columns(Berlinetta, list_columns)
+print(Berlinetta)
+print(Berlinetta.iloc[0])
+Berlinetta.to_csv("/mnt-persist/data/video_features_one_hot.csv")
