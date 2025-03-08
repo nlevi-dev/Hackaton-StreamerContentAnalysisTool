@@ -48,6 +48,15 @@ This tool helps streamers refine their content strategy by providing **clear, da
 ├── training
 └── frontend
 ```
+### Run documentation
+```bash
+poetry install
+
+poetry run mkdocs build
+
+poetry run mkdocs serve
+```
+
 ### data_acquisition
 
 #### download-data.py
