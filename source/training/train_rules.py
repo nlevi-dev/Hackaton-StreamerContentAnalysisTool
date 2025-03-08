@@ -1,9 +1,15 @@
 import matplotlib.pyplot as plt
+import plotly.express as px
 from sklearn.tree import plot_tree, export_text
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
+import os
+
+# Define save path
+save_path = "./frontend/"
+os.makedirs(save_path, exist_ok=True)  # Ensure directory exists
 
 # Load Data
 df = pd.read_csv("/mnt-persist/data/merged_video_labels.csv")
@@ -43,19 +49,9 @@ print(tree_rules)
 # Feature Importance Analysis
 feature_importance = pd.DataFrame({'feature': X.columns, 'importance': tree.feature_importances_})
 feature_importance = feature_importance.sort_values(by='importance', ascending=False)
-print("Top 10 features driving high engagement:")
-print(feature_importance.head(10))
+print("Top 3 features driving high engagement:")
+print(feature_importance.head(3))
 
-# Plot Feature Importance
-plt.figure(figsize=(10, 6))
-plt.barh(feature_importance['feature'][:10], feature_importance['importance'][:10])
-plt.xlabel('Importance')
-plt.ylabel('Feature')
-plt.title('Top 10 Features Driving High Engagement')
-plt.show()
-
-# Plot Decision Tree
-plt.figure(figsize=(12,6))
-plot_tree(tree, feature_names=X.columns, class_names=['low', 'high'], filled=True)
-plt.savefig("TREE_HIGH_VS_LOW.jpg")
-plt.show()
+# Save top 3 most important features to a file
+top_features_path = os.path.join(save_path, "top_features.csv")
+feature_importance.head(3).to_csv(top_features_path, index=False)
