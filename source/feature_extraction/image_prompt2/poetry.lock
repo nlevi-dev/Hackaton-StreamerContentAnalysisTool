@@ -803,8 +803,6 @@ typing = ["typing-extensions"]
 xmp = ["defusedxml"]
 
 [[package]]
-<<<<<<< Updated upstream
-=======
 name = "psutil"
 version = "7.0.0"
 description = "Cross-platform lib for process and system monitoring in Python.  NOTE: the syntax of this script MUST be kept compatible with Python 2.7."
@@ -828,7 +826,6 @@ dev = ["abi3audit", "black (==24.10.0)", "check-manifest", "coverage", "packagin
 test = ["pytest", "pytest-xdist", "setuptools"]
 
 [[package]]
->>>>>>> Stashed changes
 name = "python-dateutil"
 version = "2.9.0.post0"
 description = "Extensions to the standard Python datetime module"
@@ -1363,8 +1360,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-<<<<<<< Updated upstream
-content-hash = "e2202f9a96670f3308505e990076460bf023b7dc78b0a236990fcd8c0a75e2bc"
-=======
 content-hash = "e887a5d5afb0afd41f616cf146a5da2c96f111d83f1df164d5410a6996b0c06e"
->>>>>>> Stashed changes

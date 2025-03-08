@@ -12,11 +12,7 @@ torch = "^2.6.0"
 pandas = "^2.2.3"
 jaro-winkler = "^2.0.3"
 pillow = "^11.1.0"
-<<<<<<< Updated upstream
-=======
 accelerate = "^1.4.0"
->>>>>>> Stashed changes
-
 
 [build-system]
 requires = ["poetry-core"]

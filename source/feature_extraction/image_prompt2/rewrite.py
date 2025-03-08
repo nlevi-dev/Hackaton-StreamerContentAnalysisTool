@@ -1,227 +1,168 @@
+import os
+import sys
+import re
+import _pickle as pickle
+import numpy as np
+import pandas as pd
+import jaro
 import torch
 from PIL import Image
-from transformers import LlavaNextForConditionalGeneration, LlavaNextProcessor
+from transformers import pipeline, AutoProcessor, LlavaOnevisionForConditionalGeneration
 
-model_name = "llava-hf/llava-v1.6-mistral-7b-hf"
+if len(sys.argv) < 2:
+    print("Usage: extract.py path_to_folder [--debug]")
+    sys.exit(1)
+path = sys.argv[1]
+debug = "--debug" in sys.argv
 
-print(f"Loading processor from: {model_name}")
-processor = LlavaNextProcessor.from_pretrained(model_name)
+def pickle_load(path):
+    with open(path, 'rb') as f:
+        ret = pickle.load(f)
+    return ret
 
-print(f"Loading model from: {model_name}")
-model = LlavaNextForConditionalGeneration.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16,
-    low_cpu_mem_usage=True
-).cuda()
-model.eval()
+def pickle_save(path, obj):
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f)
 
-def encode_image_once(model, processor, image: Image.Image):
-    print("\n[encode_image_once] ENTERING FUNCTION")
-    try:
-        print(f"[encode_image_once] Image object type: {type(image)}")
-        print(f"[encode_image_once] Image mode: {image.mode}, size: {image.size}")
+def text_save(path, txt):
+    with open(path, 'w') as f:
+        f.write(txt)
 
-        # Always supply some text (even if empty) to avoid NoneType errors in processor
-        print("[encode_image_once] Calling processor(...) with text='' to ensure we don't have None text.")
-        # The result will have "pixel_values" for the image
-        inputs = processor(images=image, text="", return_tensors="pt")
-        
-        print(f"[encode_image_once] After processor call, keys in `inputs`: {list(inputs.keys())}")
-        for k, v in inputs.items():
-            if isinstance(v, torch.Tensor):
-                print(f"   {k} shape={v.shape}, dtype={v.dtype}, device={v.device}")
-        
-        # Move to model device
-        inputs = inputs.to(model.device)
-        pixel_values = inputs["pixel_values"]
-        if pixel_values.ndim == 5 and pixel_values.shape[1] == 5:
-            pixel_values = pixel_values[:, 0]  # now [1,3,336,336]
-        print(f"[encode_image_once] pixel_values shape: {pixel_values.shape}, dtype: {pixel_values.dtype}, device: {pixel_values.device}")
+def get_closest_idx(items, candidate):
+    m = 0
+    ret_idx = 0
+    idx = 0
+    for item in items:
+        dist = jaro.jaro_winkler_metric(item, candidate)
+        if dist > m:
+            m = dist
+            ret_idx = idx
+        idx += 1
+    return ret_idx
 
-        # Some LLaVA variants produce 5D shape [1, 3, H, W, 1].
-        if pixel_values.ndim == 5 and pixel_values.shape[-1] == 1:
-            pixel_values = pixel_values.squeeze(-1)
-            print(f"[encode_image_once] pixel_values squeezed to shape: {pixel_values.shape}")
+def generate_onehot(items):
+    prepromt = "Answer from the following list with only using a word from it [" + ",".join(items) + "]!"
+    closest = lambda a: get_closest_idx(items, a)
+    return (prepromt, closest)
 
-        with torch.no_grad():
-            print("[encode_image_once] Forward pass through vision_tower...")
-            vision_outputs = model.vision_tower(pixel_values, output_hidden_states=True)
+preprompts = {
+    "list[str]": ("Answer with a short, comma separated list!", lambda a: [re.sub("[\\s]+", "_", b.strip().lower()) for b in a.split(',') if b.strip() != '']),
+    "list[int]": ("Answer with a short, comma separated list!", lambda a: [int(re.sub("[^\\d]", "", b)) for b in a.split(',') if len(b.strip()) > 0]),
+    "list[float]": ("Answer with a short, comma separated list!", lambda a: [float(re.sub("[^\\d\\.]", "", b)) for b in a.split(',') if b.strip() != '']),
+    "int": ("Answer with a single integer number!", lambda a: int(re.sub("[^\\d]", "", a)) if len(re.sub("[^\\d]", "", a)) > 0 else 0),
+    "float": ("Answer with a single float number!", lambda a: float(re.sub("[^\\d\\.]", "", a)) if len(re.sub("[^\\d\\.]", "", a)) > 0 else 0.0),
+    "bool": ("Answer with a single yes or no!", lambda a: "y" in a),
+}
 
-        all_hidden_states = vision_outputs.hidden_states  # typically a tuple
-        print(f"[encode_image_once] vision_outputs.hidden_states is a tuple of length {len(all_hidden_states)}")
-        for i, hs in enumerate(all_hidden_states):
-            print(f"   hidden_states[{i}]: shape={hs.shape}, dtype={hs.dtype}, device={hs.device}")
+def get_preprompt(key):
+    if isinstance(key, str):
+        return preprompts[key]
+    if isinstance(key, list):
+        return generate_onehot(key)
+    raise Exception(":))))")
 
-        # Usually we take the last one
-        patch_embeds = all_hidden_states[-1]
-        print(f"[encode_image_once] patch_embeds (last layer) shape: {patch_embeds.shape}")
+prompts = [
+    # people_and_actions
+    ("list[str]", "What are the people wearing in the picture?"),
+    ("list[str]", "What is each person doing in the picture?"),
+    ("int", "How many people are in the picture?"),
+    ("int", "How many people are standing?"),
+    ("int", "How many people are sitting?"),
+    ("int", "How many people are looking at the camera?"),
+    ("int", "How many people are smiling?"),
+    ("int", "How many people are using tools?"),
+    ("int", "How many people are talking?"),
+    ("int", "How many people are handling computer components?"),
+    ("int", "How many people appear to be reacting emotionally?"),
+    ("int", "How many people are making gestures with their hands?"),
+    # objects_and_environment
+    ("list[str]", "What types of computer components are in the picture?"),
+    ("list[str]", "What tools are being used in the picture?"),
+    ("int", "How many computer components are visible in the picture?"),
+    ("int", "How many tools are visible in the picture?"),
+    ("int", "How many monitors are in the picture?"),
+    ("int", "How many keyboards are in the picture?"),
+    ("int", "How many mice are in the picture?"),
+    ("int", "How many cables are visible in the picture?"),
+    ("int", "How many RGB lights are visible in the picture?"),
+    ("int", "How many workbenches or tables are visible in the picture?"),
+    ("int", "How many cases or chassis are in the picture?"),
+    ("int", "How many boxes or packaging materials are visible in the picture?"),
+    ("bool", "Is a completed PC visible in the picture?"),
+    ("bool", "Is a disassembled PC visible in the picture?"),
+    ("bool", "Are there any brand logos visible in the picture?"),
+    (["low", "medium", "high"], "How cluttered is the workspace in the picture?"),
+    # camera_angles_and_framing
+    ("int", "How many faces are clearly visible?"),
+    ("int", "How many text elements are in the picture?"),
+    ("int", "How many different colors dominate the frame?"),
+    ("bool", "Is the image a close-up or wide shot?"),
+    ("bool", "Is there text overlay visible in the picture?"),
+    (["top-down", "side-view", "front-facing"], "What is the camera angle?"),
+    # engagement_and_expression
+    ("int", "How many people appear to be laughing?"),
+    ("int", "How many people appear to be explaining something?"),
+    ("bool", "Are there exaggerated facial expressions in the picture?"),
+    ("bool", "Are there any pointing gestures in the frame?"),
+    ("bool", "Is anyone making a surprised expression?"),
+    ("bool", "Is there a dramatic pose or action in the picture?"),
+    # logos_and_branding
+    ("list[str]", "What brands are visible in the picture?"),
+    ("int", "How many visible brand logos are in the picture?"),
+    ("bool", "Is there an LTT logo in the frame?"),
+    ("bool", "Is there a sponsor logo visible in the frame?"),
+    # textual_elements_and_graphics
+    ("int", "How many text elements are present in the frame?"),
+    ("int", "How many overlay graphics are present?"),
+    ("bool", "Is there an on-screen subtitle or caption in the frame?"),
+    ("bool", "Are there any highlighted elements or arrows in the frame?"),
+    ("bool", "Does the frame contain a thumbnail-style reaction face?"),
+]
 
-        # Typically the first token is CLS, so skip it
-        patch_embeds = patch_embeds[:, 1:, :]
-        print(f"[encode_image_once] patch_embeds after removing CLS shape: {patch_embeds.shape}")
+# Create pipeline with the new model checkpoint
+pipe = pipeline("image-text-to-text", model="llava-onevision-qwen2-0.5b-ov-hf", torch_dtype=torch.float16)
+pipe.model = torch.compile(pipe.model, mode="max-autotune")
 
-        # Now project to match LLM hidden size
-        if hasattr(model, "mm_projector"):
-            print("[encode_image_once] Found model.mm_projector; applying it.")
-            image_tokens = model.mm_projector(patch_embeds)
-        elif hasattr(model, "visual_projection"):
-            print("[encode_image_once] Found model.visual_projection; applying it.")
-            image_tokens = model.visual_projection(patch_embeds)
-        else:
-            raise RuntimeError("Cannot find the projection layer in LLaVA model!")
+def prompt(image_path, prompts):
+    messages = []
+    pres = []
+    for prompt_item in prompts:
+        pre = get_preprompt(prompt_item[0])
+        pres.append(pre[1])
+        txt = pre[0] + ' ' + prompt_item[1]
+        messages.append([
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "url": image_path},
+                    {"type": "text", "text": txt},
+                ],
+            },
+        ])
+    results = pipe(text=messages, max_new_tokens=20, batch_size=len(prompts))
+    for i in range(len(results)):
+        results[i] = pres[i](results[i][0]['generated_text'][-1]['content'])
+    return results
 
-        print(f"[encode_image_once] image_tokens shape: {image_tokens.shape}, dtype={image_tokens.dtype}, device={image_tokens.device}")
-        print("[encode_image_once] SUCCESSFUL ENCODE, returning image_tokens.\n")
+images = os.listdir(os.path.join(path, "images"))
+images = sorted(images)
 
-        return image_tokens
+os.makedirs(os.path.join(path, "feature_video"), exist_ok=True)
+if debug:
+    pd.set_option('display.width', os.get_terminal_size().columns)
+    os.makedirs(os.path.join(path, "feature_video_debug"), exist_ok=True)
 
-    except Exception as e:
-        print("[encode_image_once] An error occurred during image encoding:", e)
-        raise
+def ljust(s):
+    s = s.astype(str).str.strip()
+    return s.str.ljust(s.str.len().max())
 
-
-def create_multimodal_inputs(processor, text_prompt: str, num_image_patches: int):
-    print("\n[create_multimodal_inputs] ENTERING FUNCTION")
-    print(f"[create_multimodal_inputs] text_prompt='{text_prompt}', num_image_patches={num_image_patches}")
-
-    # Minimal conversation
-    conversation = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "url": "fake_image.jpg"},
-                {"type": "text", "text": text_prompt},
-            ],
-        }
-    ]
-    print("[create_multimodal_inputs] Created conversation object. Now calling apply_chat_template...")
-    prompt_text = processor.apply_chat_template(conversation, add_generation_prompt=True)
-    print(f"[create_multimodal_inputs] prompt_text length={len(prompt_text)} chars:\n{prompt_text}\n")
-
-    # NOTE: If the processor does not insert <im_patch> tokens without real images,
-    #       you might need to manually do a string replace, or pass `images=...`.
-    #       We'll see if it works out-of-the-box for your version.
-
-    print("[create_multimodal_inputs] Now calling processor(...) to get input_ids.")
-    inputs = processor(
-        images=None,  # We do not want to re-encode real images here
-        text=prompt_text,
-        return_tensors="pt",
-    )
-    print(f"[create_multimodal_inputs] Got these keys from processor: {list(inputs.keys())}")
-    for k, v in inputs.items():
-        if isinstance(v, torch.Tensor):
-            print(f"   {k} shape={v.shape}, dtype={v.dtype}, device={v.device}")
-    print("[create_multimodal_inputs] Returning these inputs.\n")
-    return inputs
-
-
-def replace_image_tokens_with_embeds(
-    model,
-    input_ids: torch.Tensor,
-    attention_mask: torch.Tensor,
-    image_embeds: torch.Tensor,
-    processor: LlavaNextProcessor
-):
-    print("\n[replace_image_tokens_with_embeds] ENTERING FUNCTION")
-    print(f"   input_ids shape={input_ids.shape}, dtype={input_ids.dtype}, device={input_ids.device}")
-    print(f"   attention_mask shape={attention_mask.shape}, dtype={attention_mask.dtype}, device={attention_mask.device}")
-    print(f"   image_embeds shape={image_embeds.shape}, dtype={image_embeds.dtype}, device={image_embeds.device}")
-
-    try:
-        im_patch_token_id = processor.tokenizer.convert_tokens_to_ids("<im_patch>")
-        print(f"[replace_image_tokens_with_embeds] <im_patch> token_id = {im_patch_token_id}")
-    except Exception as e:
-        raise RuntimeError("Could not find <im_patch> token_id!") from e
-
-    bsz, seq_len = input_ids.shape
-    num_image_patches = image_embeds.shape[1]
-
-    print(f"[replace_image_tokens_with_embeds] bsz={bsz}, seq_len={seq_len}, num_image_patches={num_image_patches}")
-
-    # Find positions of <im_patch>
-    patch_positions = (input_ids[0] == im_patch_token_id).nonzero().squeeze(-1)
-    print(f"[replace_image_tokens_with_embeds] Found {len(patch_positions)} <im_patch> tokens at positions: {patch_positions.tolist()}")
-
-    if len(patch_positions) != num_image_patches:
-        raise ValueError(
-            f"Number of <im_patch> tokens in text ({len(patch_positions)}) != shape of image_embeds ({num_image_patches})."
-        )
-
-    with torch.no_grad():
-        print("[replace_image_tokens_with_embeds] Running model.get_input_embeddings() on input_ids...")
-        text_embeds = model.get_input_embeddings()(input_ids)  # shape: [bsz, seq_len, hidden_dim]
-        print(f"[replace_image_tokens_with_embeds] text_embeds shape={text_embeds.shape}, dtype={text_embeds.dtype}, device={text_embeds.device}")
-
-        # Replace the patch positions with our cached image tokens
-        for i, pos in enumerate(patch_positions):
-            text_embeds[0, pos, :] = image_embeds[0, i, :]
-
-    print("[replace_image_tokens_with_embeds] DONE replacing <im_patch> tokens with image_embeds.\n")
-    return text_embeds
-
-
-def generate_with_cached_image(model, processor, text_prompt: str, image_tokens: torch.Tensor):
-    print("\n[generate_with_cached_image] ENTERING FUNCTION with text_prompt:", text_prompt)
-    try:
-        num_patches = image_tokens.size(1)
-        print(f"[generate_with_cached_image] num_patches in image_tokens = {num_patches}")
-
-        text_inputs = create_multimodal_inputs(processor, text_prompt, num_patches)
-        input_ids = text_inputs["input_ids"].to(model.device)
-        attention_mask = text_inputs["attention_mask"].to(model.device)
-
-        print("[generate_with_cached_image] calling replace_image_tokens_with_embeds(...)")
-        input_embeds = replace_image_tokens_with_embeds(
-            model, input_ids, attention_mask, image_tokens, processor
-        )
-
-        print(f"[generate_with_cached_image] input_embeds shape={input_embeds.shape}, dtype={input_embeds.dtype}, device={input_embeds.device}")
-        print("[generate_with_cached_image] Generating...")
-        with torch.no_grad():
-            generated_ids = model.generate(
-                inputs_embeds=input_embeds,
-                attention_mask=attention_mask,
-                max_new_tokens=80,
-                do_sample=False,
-                temperature=0.3
-            )
-
-        output_text = processor.decode(generated_ids[0], skip_special_tokens=True)
-        print("[generate_with_cached_image] Generated text:", output_text)
-        return output_text
-
-    except Exception as e:
-        print("[generate_with_cached_image] ERROR:", e)
-        raise
-
-
-if __name__ == "__main__":
-    print("\n[MAIN] Loading the test image...\n")
-    image_path = "/mnt-persist/test/1/images/000005_Our_New_4500_Workstation_PCs_for_Editing.jpg"
-    image = Image.open(image_path).convert("RGB")
-
-    print("[MAIN] Now calling encode_image_once...")
-    cached_image_tokens = encode_image_once(model, processor, image)
-
-    # If encoding worked, proceed
-    questions = [
-        ("list[str]", "What are the people wearing in the picture?"),
-        ("list[str]", "What is each person doing in the picture?"),
-        ("int", "How many people are in the picture?"),
-        ("int", "How many people are standing?"),
-    ]
-
-    print("\n[MAIN] Reusing cached_image_tokens for multiple questions...\n")
-    for key, prompt in questions:
-        # Combine your "prompt" with any prefix you like based on key
-        # For now, we just pass prompt. Insert whatever "Answer with an integer" etc. if needed:
-        question_text = f"{prompt}"
-        print("-----------------------------------------------------")
-        print("Question:", question_text)
-        try:
-            answer = generate_with_cached_image(model, processor, question_text, cached_image_tokens)
-            print("Answer:", answer, "\n")
-        except Exception as e:
-            print("Error during generation:", e)
-            break
+for i in range(len(images)):
+    results = prompt(os.path.join(path, "images", images[i]), prompts)
+    pickle_save(os.path.join(path, "feature_video", images[i][:-4] + ".pkl"), results)
+    if debug:
+        prs = np.array([[str(p[0]), str(p[1])] for p in prompts])
+        prs = np.concatenate([prs, np.array([[str(r) for r in results]]).T], axis=1)
+        df = pd.DataFrame(prs, columns=['datatype', 'prompt', 'value'])
+        txt = df.apply(ljust).to_string(index=False, justify='left')
+        text_save(os.path.join(path, "feature_video_debug", images[i][:-4] + ".txt"), txt)
+    print(f"{i+1}/{len(images)}")
