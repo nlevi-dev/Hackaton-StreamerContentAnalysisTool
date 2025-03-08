@@ -157,9 +157,9 @@ STEP = 60
 raw = np.load(path[:-4]+"_audio_raw.npy")
 END = int(raw[-1,1])
 
-PROMPT_L = "========================\nBased on this broader context of a conversation:\n========================\n"
-PROMPT_S = "========================\nBased on this recent context of a conversation:\n========================\n"
-PROMPT = "========================\nAnswer the following question, related to the recent context from the provided conversation:\n========================\n"
+PROMPT_L = "\nBased on this broader context of a conversation:\n\n"
+PROMPT_S = "\nBased on this recent context of a conversation:\n\n"
+PROMPT = "\nAnswer the following question, related to the recent context from the provided conversation:\n\n"
 
 chunks = []
 for i in range(END//STEP):
@@ -333,6 +333,7 @@ def prompt(chunk, prompts):
         messages.append(txt)
     results = pipe(messages, batch_size=len(prompts), **generation_args)
     for i in range(len(results)):
+        print(results[i])
         results[i] = pres[i](results[i][0]['generated_text'])
     return results
 
