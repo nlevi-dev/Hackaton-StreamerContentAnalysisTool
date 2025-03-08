@@ -1,12 +1,14 @@
 [tool.poetry]
-name = "video-emotion"
+name = "broad-context"
 version = "0.1.0"
 description = ""
-authors = ["gyori-andris <gyori.andris@gmail.com>"]
+authors = ["Andris Gyori <gyori.andris@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.10,<4.0.0"
+vllm = "^0.7.3"
+accelerate = "^1.4.0"
 
 
 [build-system]

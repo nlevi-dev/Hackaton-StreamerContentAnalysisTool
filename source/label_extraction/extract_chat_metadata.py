@@ -153,15 +153,16 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
         orient="index"  # Ensures each dictionary is a row
     ).T  # Transpose so keys become index
 
-
-    # Dynamically determine the processed directory
-    processed_dir = os.path.join(os.path.dirname(json_file), "..", "processed")
-    os.makedirs(processed_dir, exist_ok=True)  # Ensure the directory exists
-
     # Save CSV file in the processed directory
-    labels_csv_path = os.path.join(processed_dir, "labels.csv")
+    labels_csv_path = os.path.join(
+        os.path.dirname(output_json),
+        f"{os.path.splitext(os.path.basename(json_file))[0]}_labels.csv"
+    )
+ 
     df2.index = df2.index - min_time
     df2.to_csv(labels_csv_path)
+
+    print(f"Labels saved to {labels_csv_path}")
 
     # Normalize each column using min-max scaling
     df2 = (df2 - df2.min()) / (df2.max() - df2.min())
@@ -174,7 +175,7 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
 
         def get_score_from_heatmap(time, heatmap):
             for dict in heatmap:
-                print(time)
+                # print(time)
                 if (dict['start_time'] <= time) & (time < dict['end_time']):
                     return dict['value']
         
@@ -190,7 +191,7 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
     # Find the time steps with the highest score
     biggest_rows = df2.nlargest(5, "score")
 
-    print(biggest_rows["score"])
+    # print(biggest_rows["score"])
 
     for time in biggest_rows.index:
         print(str(datetime.timedelta(seconds=time)))
@@ -205,24 +206,24 @@ def main():
 
     base_directory = args.base_directory
     window_length = args.wl
+
     # Iterate over all numbered folders inside the base directory
     for folder in sorted(os.listdir(base_directory)):
         folder_path = os.path.join(base_directory, folder)
-        
+
         # Check if it's a directory
         if os.path.isdir(folder_path):
             raw_folder = os.path.join(folder_path, "raw")
-            processed_folder = os.path.join(folder_path, "processed")
-    
-        # Create the processed folder if it doesn't exist
-            os.makedirs(processed_folder, exist_ok=True)
-    
-        # Process each JSON file in the raw folder
-            json_files = glob.glob(os.path.join(raw_folder, "*.json"))
-            for json_file in json_files:
-                output_json = os.path.join(processed_folder, os.path.basename(json_file))
-                print(f"Processing: {json_file} -> {output_json}")
-                create_metadata_json(json_file, output_json, window_length)
 
+            # Process each JSON file in the raw folder
+            json_files = glob.glob(os.path.join(raw_folder, "*live_chat.json"))
+            info_json_files = glob.glob(os.path.join(raw_folder, "*info.json"))
+            info_json_file = info_json_files[0] if info_json_files else None  
+
+            for json_file in json_files:
+                output_json = os.path.join(folder_path, os.path.basename(json_file))
+                print(f"Processing: {json_file} -> {output_json}")
+                create_metadata_json(json_file, output_json, window_length, info_json_file)
+    
 if __name__ == "__main__":
     main()
