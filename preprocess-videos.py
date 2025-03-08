@@ -35,7 +35,7 @@ def process_videos(base_dir, video_resolution, video_fps):
                 audio_files.append((video_path, audio_mp3_path))
                 
                 print(f"Extracting images to: {images_dir}")
-                subprocess.run(['ffmpeg', '-i', video_path, '-vf', f'fps={video_fps}, scale={video_resolution}, format=yuv420p', '-threads', '20', '-thread_type', 'slice', image_pattern], check=True)
+                subprocess.run(['ffmpeg', '-i', video_path, '-vf', f'fps={video_fps}, scale={video_resolution}, format=yuv420p', '-threads', '16', '-thread_type', 'slice', image_pattern], check=True)
 
                 # Rename images to reflect when the picture was taken from the video
                 for image_file in os.listdir(images_dir):
@@ -44,7 +44,7 @@ def process_videos(base_dir, video_resolution, video_fps):
                         # Extract the timestamp from the image filename
                         frame_number = int(image_file.split('_')[-1].split('.')[0])
                         # Calculate the timestamp in seconds
-                        timestamp = int(frame_number / float(video_fps))
+                        timestamp = int(frame_number / float(video_fps)) - 30 #there is an offset :((
                         # Format the timestamp as seconds
                         timestamp_formatted = f"{timestamp:06}"
                         # Create the new filename with the timestamp
@@ -62,7 +62,7 @@ def process_videos(base_dir, video_resolution, video_fps):
                 print(f"Set permissions for images: {images_dir}")
         
     # Use multiprocessing to process audio files in parallel
-    with multiprocessing.Pool(multiprocessing.cpu_count()-8) as pool:
+    with multiprocessing.Pool(8) as pool:
         pool.map(process_audio, audio_files)
 
 def process_audio(inputs):
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process videos to extract audio and images.')
     parser.add_argument('base_dir', nargs='?', default='/mnt-persist/data', type=str, help='The base directory containing the data folders.')
     parser.add_argument('--video_resolution', type=str, default='1920x1080', help='Video resolution in WxH format.')
-    parser.add_argument('--video_fps', type=str, default='0.20', help='Video fps.')
+    parser.add_argument('--video_fps', type=str, default='0.016666666', help='Video fps.')
     args = parser.parse_args()
 
     print(f"Starting processing in directory: {args.base_dir}")

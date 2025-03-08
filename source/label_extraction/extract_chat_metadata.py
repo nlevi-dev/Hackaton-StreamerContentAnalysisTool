@@ -31,7 +31,10 @@ def calculate_message_rate(df: pd.DataFrame, min_time: int, max_time: int, windo
         
         # Get distinct authors
         distinct_author_rate[bucket] = bucket_content["author"].nunique()
-        active_user_rates[bucket] = distinct_author_rate[bucket]/message_rate[bucket]
+        if message_rate[bucket] == 0:
+            active_user_rates[bucket] = 0
+        else:
+            active_user_rates[bucket] = distinct_author_rate[bucket]/message_rate[bucket]
     return message_rate, distinct_author_rate, active_user_rates
         
 
@@ -50,7 +53,7 @@ def calculate_donation_rates(df: pd.DataFrame, min_time: int, max_time: int, win
 
 
 
-def create_metadata_json(json_file, output_json, window_length, metadata_path=None):
+def create_metadata_json(json_file, output_json, window_length, metadata_path=None, save_folder=None):
     """
     Extract chat messages and donation data from a JSON file and save them as a CSV.
 
@@ -155,7 +158,7 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
 
     # Save CSV file in the processed directory
     labels_csv_path = os.path.join(
-        os.path.dirname(output_json),
+        save_folder,
         f"{os.path.splitext(os.path.basename(json_file))[0]}_labels.csv"
     )
  
@@ -220,9 +223,12 @@ def main():
             info_json_file = info_json_files[0] if info_json_files else None  
 
             for json_file in json_files:
-                output_json = os.path.join(folder_path, os.path.basename(json_file))
+                output_json = os.path.join(
+                    raw_folder,
+                    f"{os.path.splitext(os.path.basename(json_file))[0]}_clean.json"
+                )
                 print(f"Processing: {json_file} -> {output_json}")
-                create_metadata_json(json_file, output_json, window_length, info_json_file)
+                create_metadata_json(json_file, output_json, window_length, info_json_file, raw_folder)
     
 if __name__ == "__main__":
     main()
