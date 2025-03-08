@@ -42,38 +42,38 @@ def transcribe_audio(input_file):
     segment_duration = 10 * 60  # 10 minutes in seconds
     duration_seconds = int(librosa.get_duration(y=audio, sr=44100))
     num_segments = duration_seconds // segment_duration
-    
-    with open("stage1.txt", "w") as log_file:
-        cumulative_offset = 0  # Initialize cumulative offset for timestamps
-        for i in range(num_segments):
-            start = i * segment_duration
-            end = start + segment_duration
-            segment = audio_16k[start * 16000:end * 16000]  # 16000 is the target sample rate
-            
-            result = pipe(segment)
-            
-            if 'chunks' in result:
-                for chunk in result['chunks']:
-                    word = chunk['text']
-                    start_time, end_time = chunk['timestamp']
-                    adjusted_start_time = start_time + cumulative_offset
-                    adjusted_end_time = end_time + cumulative_offset
-                    log_file.write(f"Word: '{word}' | Start: {adjusted_start_time:.2f}s | End: {adjusted_end_time:.2f}s\n")
-            else:
-                log_file.write("No timestamps available.\n")
-            
-            # Update cumulative offset by the segment duration
-            cumulative_offset += segment_duration
+
+    log_file = ""
+    cumulative_offset = 0  # Initialize cumulative offset for timestamps
+    for i in range(num_segments):
+        start = i * segment_duration
+        end = start + segment_duration
+        segment = audio_16k[start * 16000:end * 16000]  # 16000 is the target sample rate
+        
+        result = pipe(segment)
+        
+        if 'chunks' in result:
+            for chunk in result['chunks']:
+                word = chunk['text']
+                start_time, end_time = chunk['timestamp']
+                adjusted_start_time = start_time + cumulative_offset
+                adjusted_end_time = end_time + cumulative_offset
+                log_file += f"Word: '{word}' | Start: {adjusted_start_time:.2f}s | End: {adjusted_end_time:.2f}s\n"
+        else:
+            log_file += "No timestamps available.\n"
+        
+        # Update cumulative offset by the segment duration
+        cumulative_offset += segment_duration
+    return log_file
 
 print("stage1")
-transcribe_audio(path)
+log_file = transcribe_audio(path)
 del pipe
 del processor
 del model
 
 def to_sentences(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+    lines = file_path.split("\n")
 
     sentences = []
     current_sentence = []
@@ -102,12 +102,13 @@ def to_sentences(file_path):
         sentences.append((start_time, end_time, ' '.join(current_sentence)))
 
     # Output the sentences in the desired format and append to processed_sentences.txt
-    with open('stage2.txt', 'a') as output_file:
-        for start, end, sentence in sentences:
-            output_file.write(f"[{start:.2f} - {end:.2f}] {sentence}\n")
+    output_file = ""
+    for start, end, sentence in sentences:
+        output_file += f"[{start:.2f} - {end:.2f}] {sentence}\n"
+    return output_file
 
 print("stage2")
-to_sentences("stage1.txt")
+output_file = to_sentences(log_file)
 
 model_name = "tabularisai/multilingual-sentiment-analysis"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -122,9 +123,7 @@ def predict_sentiment(text):
     return torch.argmax(probabilities, dim=-1).item()
 
 def add_sentiment(file_path):
-    # Read sentences from the file
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+    lines = file_path.split("\n")
 
     result = []
     for line in lines:
@@ -141,8 +140,6 @@ def add_sentiment(file_path):
 print("stage3")
 result = add_sentiment("stage2.txt")
 np.save(path[:-4]+"_audio_raw.npy",result)
-os.remove("stage1.txt")
-os.remove("stage2.txt")
 del model
 del tokenizer
 
