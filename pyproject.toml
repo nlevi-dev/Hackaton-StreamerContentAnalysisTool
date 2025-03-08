@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "byborgai"
+version = "0.1.0"
+description = ""
+authors = ["Lovasz Botond <botilovasz@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+yt-dlp = "^2025.2.19"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

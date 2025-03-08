@@ -109,6 +109,57 @@ def download_video_and_chat(url, output_path, index, cookies_file):
             done_file_path = os.path.join(raw_dir, "done.txt")
             open(done_file_path, 'w').close()  # Create an empty file
 
+def download_video_info(url, output_path, index, cookies_file):
+    """
+    Download the info JSON for a YouTube video and save the video link in 'done.txt'.
+
+    Parameters:
+    url (str): The URL of the YouTube video.
+    output_path (str): The base directory where the info JSON will be saved.
+    index (int): An index used to create a unique directory for each video.
+    cookies_file (str): Path to the cookies file for authentication.
+
+    Returns:
+    None
+    """
+    # Create a directory for each video using an integer index
+    video_dir = os.path.join(output_path, str(index))
+    raw_dir = os.path.join(video_dir, 'raw')
+
+    # Check if "done.txt" exists in the raw directory
+    done_file_path = os.path.join(raw_dir, "done.txt")
+    if not os.path.exists(done_file_path):
+        print(f"Skipping download for {index} as 'done.txt' does not exist.")
+        return
+
+    ydl_opts = {
+        'outtmpl': os.path.join(raw_dir, '%(title)s'),
+        'skip_download': True,
+        'writeinfojson': True,
+        'cookiefile': cookies_file,
+    }
+    
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        title = info_dict.get('title', None)
+        ydl.download([url])
+        print(f"Downloaded info JSON for: {index}")
+
+        if title:
+            title_new = sanitize_filename(title)
+            original_info_file = os.path.join(raw_dir, f"{title}.info.json")
+            sanitized_info_file = os.path.join(raw_dir, f"{title_new}.info.json")
+            
+            if os.path.exists(original_info_file):
+                os.rename(original_info_file, sanitized_info_file)
+                os.chmod(sanitized_info_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                
+        # Write the URL to the done file
+        with open(done_file_path, 'w') as done_file:
+            done_file.write(url + '\n')
+        
+        os.chmod(done_file_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
 def main():
     """
     Main function to parse command-line arguments and initiate the download process.
@@ -134,8 +185,9 @@ def main():
         url = url.strip()
         if url:
             try:
-                download_video_and_chat(url, args.output_path, index, args.cookies_file)
-                time.sleep(10)
+                #download_video_and_chat(url, args.output_path, index, args.cookies_file)
+                download_video_info(url, args.output_path, index, args.cookies_file)
+                time.sleep(3)
             except Exception as e:
                 print(f"Failed to process {e}: {url}")
 
