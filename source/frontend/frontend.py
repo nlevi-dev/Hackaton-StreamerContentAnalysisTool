@@ -10,9 +10,10 @@ from sklearn.preprocessing import MinMaxScaler
 # Set Streamlit page configuration
 st.set_page_config(page_title="Streamer Engagement Dashboard", layout="wide")
 
-def convert_index_to_timestamp(indices):
+def convert_index_to_timestamp(indices, wl: int):
+    print(indices)
     """Convert indices to timestamps for better readability."""
-    seconds = [idx * 20 for idx in indices]  # Assuming 20-second intervals
+    seconds = [idx * wl for idx in indices]  # Assuming 20-second intervals
     timestamps = [str(datetime.timedelta(seconds=sec)) for sec in seconds]
     return timestamps, seconds  
 
@@ -21,24 +22,27 @@ chat_data = pd.read_csv("/mnt-persist/data/1/raw/Our_New_4500_Workstation_PCs_fo
 merged_video_labels = pd.read_csv("/mnt-persist/data/merged_video_labels.csv")  # This already has 'video_number'
 merged_data = merged_video_labels[merged_video_labels['video_number']==1]
 
-feature_importances = pd.read_csv("./frontend/top_features.csv")
+feature_importances = pd.read_csv("/home/mika/ByborgAI/source/frontend/top_features.csv")
 
 # Compute rolling mean for smoothing
+timestamps, seconds = convert_index_to_timestamp(chat_data.index, 20)
+chat_data["rolling_mean"] = chat_data["score"].rolling(window=5).mean()
 merged_data["rolling_mean"] = merged_data["score"].rolling(window=5).mean()
-timestamps, seconds = convert_index_to_timestamp(merged_data.index)
+chat_data["timestamps"] = timestamps
+chat_data["seconds"] = seconds
+timestamps, seconds = convert_index_to_timestamp(merged_data.index, 60)
 merged_data["timestamps"] = timestamps
 merged_data["seconds"] = seconds  # Add raw seconds for YouTube links
 
 # **Detect Local Maxima (Engaging Moments)**
 window_size = 5  # Adjustable window for peak detection
-merged_data["rolling_mean"] = merged_data["score"].rolling(window=window_size).mean()
 
 # Find local maxima (peaks)
-local_max_indices = argrelextrema(merged_data["rolling_mean"].values, np.greater, order=10)[0]
+local_max_indices = argrelextrema(chat_data["rolling_mean"].values, np.greater, order=10)[0]
 
 # Filter significant peaks based on a threshold
-engagement_threshold = np.percentile(merged_data["rolling_mean"].dropna(), 90)  # Top 10% peaks
-key_moments = merged_data.iloc[local_max_indices]
+engagement_threshold = np.percentile(chat_data["rolling_mean"].dropna(), 90)  # Top 10% peaks
+key_moments = chat_data.iloc[local_max_indices]
 key_moments = key_moments[key_moments["rolling_mean"] >= engagement_threshold]
 
 # **Generate YouTube Links for Engaging Moments**
@@ -59,17 +63,17 @@ with st.sidebar:
     st.header("⚙️ Settings")
     window_size = st.slider("Rolling Mean Window Size", min_value=1, max_value=20, value=5)
 
-    merged_data["rolling_mean"] = merged_data["score"].rolling(window=window_size).mean()
+    chat_data["rolling_mean"] = chat_data["score"].rolling(window=window_size).mean()
     
     # Update peaks after changing window size
-    local_max_indices = argrelextrema(merged_data["rolling_mean"].values, np.greater, order=10)[0]
-    key_moments = merged_data.iloc[local_max_indices]
+    local_max_indices = argrelextrema(chat_data["rolling_mean"].values, np.greater, order=10)[0]
+    key_moments = chat_data.iloc[local_max_indices]
     key_moments = key_moments[key_moments["rolling_mean"] >= engagement_threshold]
     key_moments["youtube_link"] = key_moments["seconds"].apply(lambda sec: f"{YOUTUBE_VIDEO_URL}&t={sec}")
 
 # Create a Plotly figure for engagement score
-fig = px.line(merged_data, x="timestamps", y="rolling_mean", labels={"rolling_mean": "Engagement Score"})
-
+fig = px.line(chat_data, x="timestamps", y="rolling_mean", labels={"rolling_mean": "Engagement Score"})
+fig.update_xaxes(tickmode="linear", dtick=int(len(chat_data) / 10))
 # Add engaging moments as clickable hover tooltips
 fig.add_scatter(
     x=key_moments["timestamps"], 
