@@ -65,11 +65,11 @@ def transcribe_audio(input_file):
             # Update cumulative offset by the segment duration
             cumulative_offset += segment_duration
 
+print("stage1")
+transcribe_audio(path)
 del pipe
 del processor
 del model
-# print("stage1")
-# transcribe_audio(path)
 
 def to_sentences(file_path):
     with open(file_path, 'r') as file:
@@ -106,8 +106,8 @@ def to_sentences(file_path):
         for start, end, sentence in sentences:
             output_file.write(f"[{start:.2f} - {end:.2f}] {sentence}\n")
 
-# print("stage2")
-# to_sentences("stage1.txt")
+print("stage2")
+to_sentences("stage1.txt")
 
 model_name = "tabularisai/multilingual-sentiment-analysis"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -141,29 +141,29 @@ def add_sentiment(file_path):
             result.append([start,end,sentiment,sentence])
     return np.array(result)
 
-# print("stage3")
-# result = add_sentiment("stage2.txt")
-# np.save(path[:-4]+"_audio_raw.npy",result)
-# os.remove("stage1.txt")
-# os.remove("stage2.txt")
-
+print("stage3")
+result = add_sentiment("stage2.txt")
+np.save(path[:-4]+"_audio_raw.npy",result)
+os.remove("stage1.txt")
+os.remove("stage2.txt")
 del model
 del tokenizer
 
-CONTEXT_L = 10*60
-CONTEXT_S = 2*60
+CONTEXT_L = 0
+CONTEXT_S = 40
 STEP = 60
+OFFSET = 30
 
 raw = np.load(path[:-4]+"_audio_raw.npy")
 END = int(raw[-1,1])
 
-PROMPT_L = "\nBased on this broader context of a conversation:\n\n"
-PROMPT_S = "\nBased on this recent context of a conversation:\n\n"
-PROMPT = "\nAnswer the following question, related to the recent context from the provided conversation:\n\n"
+PROMPT_L = ""
+PROMPT_S = ""
+PROMPT = ""
 
 chunks = []
 for i in range(END//STEP):
-    end_s = i*STEP+STEP
+    end_s = OFFSET+i*STEP+STEP
     start_s = end_s-CONTEXT_S
     end_l = start_s
     start_l = end_s-CONTEXT_L
@@ -172,7 +172,7 @@ for i in range(END//STEP):
     for s in raw:
         st = int(s[0])
         if start_l <= st and st < end_l:
-            context_l += s[3]+"\n"
+            context_l += "\""+s[3]+"\"\n"
         elif start_s <= st and st <= end_s:
             context_s += s[3]+"\n"
     chunk = ""
@@ -223,14 +223,14 @@ preprompts = {
     "bool":("Answer with a single yes or no!",lambda a:"y" in a),
 }
 
-preprompts = {
-    "list[str]":("Answer with a short, comma separated list!",lambda a:a),
-    "list[int]":("Answer with a short, comma separated list!",lambda a:a),
-    "list[float]":("Answer with a short, comma separated list!",lambda a:a),
-    "int":("Answer with a single integer number!",lambda a:a),
-    "float":("Answer with a single float number!",lambda a:a),
-    "bool":("Answer with a single yes or no!",lambda a:a),
-}
+# preprompts = {
+#     "list[str]":("Answer with a short, comma separated list!",lambda a:a),
+#     "list[int]":("Answer with a short, comma separated list!",lambda a:a),
+#     "list[float]":("Answer with a short, comma separated list!",lambda a:a),
+#     "int":("Answer with a single integer number!",lambda a:a),
+#     "float":("Answer with a single float number!",lambda a:a),
+#     "bool":("Answer with a single yes or no!",lambda a:a),
+# }
 
 def get_preprompt(key):
     if isinstance(key, str):
@@ -250,12 +250,12 @@ prompts = [
     ("int", "How many rhetorical questions are asked in the transcript?"),
     # Topics & Technical Content
     ("int", "How many times is 'PC build' or 'building' mentioned?"),
-    ("list[str]", "Which specific computer components are mentioned (CPU, GPU, RAM, SSD, etc.)?"),
-    ("list[str]", "Which specific PC brands are mentioned (Intel, AMD, NVIDIA, ASUS, etc.)?"),
+    # ("list[str]", "Which specific computer components are mentioned (CPU, GPU, RAM, SSD, etc.)?"),
+    # ("list[str]", "Which specific PC brands are mentioned (Intel, AMD, NVIDIA, ASUS, etc.)?"),
     ("int", "How many times do they mention benchmarks or performance comparisons?"),
     ("bool", "Did they mention troubleshooting or fixing an issue?"),
     ("int", "How often do they mention overclocking or optimization?"),
-    ("list[str]", "Which specific software tools or BIOS settings are mentioned?"),
+    # ("list[str]", "Which specific software tools or BIOS settings are mentioned?"),
     ("int", "How many times do they mention price or cost?"),
     ("int", "How often do they discuss PC aesthetics (RGB lighting, case design, etc.)?"),
     # Jokes, Reactions & Engagement Hooks
@@ -263,9 +263,9 @@ prompts = [
     ("int", "How often do speakers exaggerate for comedic effect?"),
     ("int", "How many times is a running joke referenced?"),
     ("int", "How many times does Linus make a self-deprecating joke?"),
-    ("list[str]", "What emotions do speakers express when reacting with surprise or frustration?"),
+    # ("list[str]", "What emotions do speakers express when reacting with surprise or frustration?"),
     ("int", "How often do speakers break the fourth wall (acknowledging the audience or video production)?"),
-    ("list[str]", "Which internet slang or memes do speakers use?"),
+    # ("list[str]", "Which internet slang or memes do speakers use?"),
     ("int", "How often does Linus joke about dropping something?"),
     ("int", "How often do they make a reference to previous LTT videos?"),
     ("int", "How many times do they tease each other or engage in friendly banter?"),
@@ -285,43 +285,39 @@ prompts = [
     ("int", "How frequently do they joke about things breaking or not working?"),
     ("int", "How many times do they mention something being more difficult than expected?"),
     ("int", "How often do they have to redo a step?"),
-    ("list[str]", "What last-minute changes do they make in the build?"),
-    ("list[str]", "What common mistakes do they mention viewers might make?"),
+    # ("list[str]", "What last-minute changes do they make in the build?"),
+    # ("list[str]", "What common mistakes do they mention viewers might make?"),
     ("int", "How often do they say 'we will fix it later' or something similar?"),
-    ("list[str]", "Which components or tools do they express frustration with?"),
+    # ("list[str]", "Which components or tools do they express frustration with?"),
     # Sponsorships, Branding & Call-to-Actions
     ("int", "How many times is a sponsor mentioned?"),
     ("int", "How many times does Linus explicitly read an ad or promotional message?"),
-    ("list[str]", "Which products are mentioned in a way that suggests sponsorship?"),
+    # ("list[str]", "Which products are mentioned in a way that suggests sponsorship?"),
     ("int", "How often do they mention LTT store products?"),
     ("int", "How many times do they remind viewers to subscribe or like the video?"),
     ("int", "How frequently do they mention future videos or upcoming content?"),
     ("int", "How many times do they ask viewers for opinions in the comments?"),
-    ("list[str]", "Which external websites or resources do they mention?"),
-    ("list[str]", "Which other YouTube channels do they reference?"),
+    # ("list[str]", "Which external websites or resources do they mention?"),
+    # ("list[str]", "Which other YouTube channels do they reference?"),
     ("int", "How many times do they promote their paid content (Floatplane, LTT Labs, etc.)?"),
 ]
 
 torch.random.manual_seed(0)
-model_path = "microsoft/Phi-4-mini-instruct"
+model_path = "mistralai/Mistral-7B-Instruct-v0.3"
 model = AutoModelForCausalLM.from_pretrained(
     model_path,
     device_map="auto",
-    torch_dtype="auto",
+    torch_dtype=torch.float16,
     trust_remote_code=True,
 )
 tokenizer = AutoTokenizer.from_pretrained(model_path)
+tokenizer.pad_token = tokenizer.eos_token
 pipe = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
 )
-generation_args = {
-    "max_new_tokens": 50,
-    "return_full_text": False,
-    "temperature": 0.0,
-    "do_sample": False,
-}
+# prompts = prompts[0:10]
 
 def prompt(chunk, prompts):
     messages = []
@@ -329,12 +325,21 @@ def prompt(chunk, prompts):
     for prompt in prompts:
         pre = get_preprompt(prompt[0])
         pres.append(pre[1])
-        txt = chunk+pre[0]+' '+prompt[1]
-        messages.append(txt)
-    results = pipe(messages, batch_size=len(prompts), **generation_args)
+        txt = ""
+        txt += "Given the following transcript from a LinusTechTips video, where they are usually building computers, extract "
+        txt += prompt[1]
+        txt += "and "
+        txt += pre[0]+"\n"
+        txt += chunk+"\n"
+        txt += pre[0]+" "+prompt[1]
+        messages.append([
+            {"role":"system","content":"You are a data processing agent. You extract information from provided transcripts, which are wrapped in quotes."},
+            {"role":"user","content":txt},
+        ])
+    results = pipe(messages, batch_size=len(prompts), max_new_tokens=10)
     for i in range(len(results)):
-        print(results[i])
-        results[i] = pres[i](results[i][0]['generated_text'])
+        results[i] = pres[i](results[i][0]['generated_text'][-1]["content"])
+        print(prompts[i][1]+": "+str(results[i]))
     return results
 
 idx = path.rfind("/")
@@ -349,7 +354,7 @@ def ljust(s):
     s = s.astype(str).str.strip()
     return s.str.ljust(s.str.len().max())
 
-chunks = chunks[0:2]
+# chunks = chunks[50:52]
 
 for i in range(len(chunks)):
     results = prompt(chunks[i], prompts)

@@ -12,6 +12,8 @@ torch = "^2.6.0"
 accelerate = "^1.4.0"
 numpy = "2.1"
 pandas = "^2.2.3"
+protobuf = "^6.30.0"
+sentencepiece = "^0.2.0"
 
 
 [build-system]
