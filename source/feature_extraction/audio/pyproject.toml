@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "image-prompt"
+name = "audio"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
@@ -9,12 +9,10 @@ readme = "README.md"
 python = "^3.12"
 transformers = "^4.49.0"
 torch = "^2.6.0"
-pandas = "^2.2.3"
-jaro-winkler = "^2.0.3"
-pillow = "^11.1.0"
 accelerate = "^1.4.0"
-tensorboard = "^2.19.0"
-torch-tb-profiler = "^0.4.3"
+numpy = "2.1"
+pandas = "^2.2.3"
+
 
 [build-system]
 requires = ["poetry-core"]
