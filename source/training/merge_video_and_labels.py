@@ -21,6 +21,9 @@ def load_labels(video_number, base_path="/mnt-persist/data"):
     labels_df["timestamp"] = labels_df.index * 20  # Assume each row represents 20s interval
     labels_df["rounded_timestamp"] = labels_df["timestamp"].apply(round_to_nearest_bucket)
     
+    # Keep only the score column
+    labels_df = labels_df[["rounded_timestamp", "score"]]
+    
     return labels_df
 
 def merge_data(video_features_path):
@@ -48,7 +51,7 @@ def merge_data(video_features_path):
     return final_df
 
 # Path to video features CSV
-video_features_csv = "/mnt-persist/data/video_features.csv"
+video_features_csv = "/mnt-persist/data/video_features_one_hot.csv"
 merged_df = merge_data(video_features_csv)
 
 # Save the merged dataset

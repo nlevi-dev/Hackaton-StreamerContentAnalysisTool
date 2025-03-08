@@ -15,7 +15,7 @@ def convert_index_to_timestamp(indices):
     return timestamps, seconds  # Return both formatted timestamps and raw seconds
 
 # Load the data
-chart_data = pd.read_csv("/home/mika/ByborgAI/processed/df2.csv")
+chart_data = pd.read_csv("/mnt-persist/data/1/raw/Our_New_4500_Workstation_PCs_for_Editing.live_chat_labels.csv")
 
 # Compute rolling mean for smoothing
 chart_data["rolling_mean"] = chart_data["score"].rolling(window=5).mean()
@@ -84,7 +84,7 @@ with st.sidebar:
         x=key_moments["timestamps"], 
         y=key_moments["rolling_mean"], 
         mode="markers", 
-        name="",
+        name="Highest engagement",
         marker=dict(size=10, color="red", symbol="star"),
         customdata=key_moments["youtube_link"],
         hovertemplate="<b>Timestamp:</b> %{x}<br>" +
