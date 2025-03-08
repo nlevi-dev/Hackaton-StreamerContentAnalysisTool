@@ -48,7 +48,7 @@ key_moments = chat_data.iloc[local_max_indices]
 key_moments = key_moments[key_moments["rolling_mean"] >= engagement_threshold]
 
 # **Generate YouTube Links for Engaging Moments**
-YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v=G4JoDcsk62A&ab_channel=LinusTechTips"
+YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v=fGXdUp9rfHo"
 key_moments["youtube_link"] = key_moments["seconds"].apply(lambda sec: f"{YOUTUBE_VIDEO_URL}&t={sec}")
 
 # Title and description
