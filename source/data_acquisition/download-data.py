@@ -10,11 +10,17 @@ def sanitize_filename(filename):
     """
     Sanitize the filename by replacing spaces with underscores and removing special characters.
 
-    Parameters:
-    filename (str): The original filename to be sanitized.
+    This function ensures that the filename is safe for use in file systems by replacing spaces with underscores and removing any characters that are not alphanumeric or underscores.
+
+    Args:
+        filename (str): The original filename to be sanitized.
 
     Returns:
-    str: The sanitized filename.
+        str: The sanitized filename.
+
+    Example:
+        >>> sanitize_filename('example file@name!.mp4')
+        'example_filename.mp4'
     """
     # Replace spaces with underscores and remove special characters
     filename = filename.replace(' ', '_')
@@ -24,14 +30,18 @@ def download_video_and_chat(url, output_path, index, cookies_file):
     """
     Download a YouTube video and its live chat, saving them to a specified directory.
 
-    Parameters:
-    url (str): The URL of the YouTube video.
-    output_path (str): The base directory where the video and chat will be saved.
-    index (int): An index used to create a unique directory for each video.
-    cookies_file (str): Path to the cookies file for authentication.
+    This function uses yt-dlp to download a YouTube video and its live chat, saving them to a specified directory.
+    It ensures that the video and chat files are saved with appropriate permissions for further use.
 
-    Returns:
-    None
+    Args:
+        url (str): The URL of the YouTube video.
+        output_path (str): The base directory where the video and chat will be saved.
+        index (int): An index used to create a unique directory for each video.
+        cookies_file (str): Path to the cookies file for authentication.
+
+    Example:
+        >>> download_video_and_chat('https://www.youtube.com/watch?v=example', '/path/to/output', 1, '/path/to/cookies.txt')
+        This will download the video and chat from the specified URL and save them to the output directory.
     """
     # Create a directory for each video using an integer index
     video_dir = os.path.join(output_path, str(index))
@@ -113,14 +123,14 @@ def download_video_info(url, output_path, index, cookies_file):
     """
     Download the info JSON for a YouTube video and save the video link in 'done.txt'.
 
-    Parameters:
-    url (str): The URL of the YouTube video.
-    output_path (str): The base directory where the info JSON will be saved.
-    index (int): An index used to create a unique directory for each video.
-    cookies_file (str): Path to the cookies file for authentication.
+    Args:
+        url (str): The URL of the YouTube video.
+        output_path (str): The base directory where the info JSON will be saved.
+        index (int): An index used to create a unique directory for each video.
+        cookies_file (str): Path to the cookies file for authentication.
 
     Returns:
-    None
+        None
     """
     # Create a directory for each video using an integer index
     video_dir = os.path.join(output_path, str(index))
@@ -162,10 +172,15 @@ def download_video_info(url, output_path, index, cookies_file):
 
 def main():
     """
-    Main function to parse command-line arguments and initiate the download process.
+    Parse command-line arguments and initiate the download process.
+
+    This function sets up the argument parser to handle command-line inputs,
+    reads the input file containing video URLs, and initiates the download
+    process for each URL. It ensures that the output directory exists and
+    sets appropriate permissions for the downloaded files.
 
     Returns:
-    None
+        None
     """
     parser = argparse.ArgumentParser(description='Download YouTube videos and chat history.')
     parser.add_argument('input_file', type=str, help='Path to the text file containing video URLs')

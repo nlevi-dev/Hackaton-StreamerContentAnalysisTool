@@ -4,13 +4,33 @@ import pandas as pd
 
 
 def pickle_load(path):
-    with open(path,'rb') as f:
+    """Load a pickle file from the specified path.
+
+    Args:
+        path (str): The file path to the pickle file.
+
+    Returns:
+        Any: The object loaded from the pickle file.
+    """
+    with open(path, 'rb') as f:
         ret = pickle.load(f)
     return ret
 
-# Ahh, der Ferrari... ein Name, der weltweit für Luxus, Leistung und italienische Handwerkskunst steht. Gegründet 1939 von Enzo Ferrari, hat sich das Unternehmen von einem bescheidenen Anfang zu einem globalen Symbol für Exzellenz und Innovation entwickelt.
 
-def load_pickles_from_directory(directory_path: str, video_number: int):
+def load_pickles_from_directory(directory_path: str, video_number: int) -> pd.DataFrame:
+    """Load pickle files from a directory and compile them into a DataFrame.
+
+    This function reads all pickle files in the specified directory, extracts
+    data from each file, and compiles the data into a pandas DataFrame with
+    predefined column names.
+
+    Args:
+        directory_path (str): The path to the directory containing pickle files.
+        video_number (int): The video number to associate with each entry.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the compiled data from the pickle files.
+    """
     column_names = [
         "video_number", "timestamp", "wearing", "actions", "num_people", "num_standing", "num_sitting", "num_looking_at_camera",
         "num_smiling", "num_using_tools", "num_talking", "num_handling_components", "num_reacting_emotionally", "num_gesturing",
@@ -30,7 +50,16 @@ def load_pickles_from_directory(directory_path: str, video_number: int):
     df = pd.DataFrame.from_dict(results, orient='index', columns=column_names)
     return df
 
-def load_all_videos():
+
+def load_all_videos() -> pd.DataFrame:
+    """Load data from all video directories and compile into a single DataFrame.
+
+    This function iterates over a predefined list of video numbers, loads data
+    from each video's directory, and concatenates the data into a single DataFrame.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing data from all specified video directories.
+    """
     finished_videos = [i + 1 for i in range(24) if i + 1 not in [14, 15, 17]]
     df_list = []
     for i in finished_videos:
@@ -38,12 +67,19 @@ def load_all_videos():
     return pd.concat(df_list, ignore_index=True)
 
 
-import pandas as pd
+def one_hot_encode_list_columns(df: pd.DataFrame, list_columns: list) -> pd.DataFrame:
+    """One-hot encode specified columns containing lists of strings.
 
-def one_hot_encode_list_columns(df, list_columns):
-    """One-hot encode columns containing lists of strings."""
+    This function drops the specified columns from the DataFrame as the one-hot
+    encoding results in too many columns.
 
-    # This resulted in 1800 columns so we just drop em
+    Args:
+        df (pd.DataFrame): The DataFrame containing the columns to be encoded.
+        list_columns (list): A list of column names to be one-hot encoded.
+
+    Returns:
+        pd.DataFrame: The DataFrame with specified columns dropped.
+    """
     for col in list_columns:
         if col in df.columns:
             df = df.drop(columns=[col])

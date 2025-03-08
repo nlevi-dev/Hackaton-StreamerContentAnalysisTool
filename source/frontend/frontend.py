@@ -13,9 +13,30 @@ from plotly.subplots import make_subplots
 st.set_page_config(page_title="Streamer Engagement Dashboard", layout="wide")
 
 def convert_index_to_timestamp(indices, wl: int):
+    """Convert indices to timestamps for better readability.
+
+    This function takes a list of indices and a window length, and converts
+    the indices to timestamps. The timestamps are calculated by multiplying
+    each index by the window length, and then converting the resulting seconds
+    to a string representation of the time in the format HH:MM:SS.
+
+    Args:
+        indices (list[int]): A list of indices to be converted.
+        wl (int): The window length in seconds.
+
+    Returns:
+        tuple: A tuple containing:
+            - timestamps (list[str]): A list of timestamps in the format HH:MM:SS.
+            - seconds (list[int]): A list of seconds corresponding to each index.
+
+    Example:
+        >>> indices = [0, 1, 2, 3]
+        >>> wl = 20
+        >>> convert_index_to_timestamp(indices, wl)
+        (['0:00:00', '0:00:20', '0:00:40', '0:01:00'], [0, 20, 40, 60])
+    """
     print(indices)
-    """Convert indices to timestamps for better readability."""
-    seconds = [idx * wl for idx in indices]  # Assuming 20-second intervals
+    seconds = [idx * wl for idx in indices]
     timestamps = [str(datetime.timedelta(seconds=sec)) for sec in seconds]
     return timestamps, seconds  
 

@@ -1,0 +1,30 @@
+site_name: "Synthesis Documentation"
+theme:
+  name: 'material'
+  palette:
+    primary: 'indigo'
+    accent: 'pink'
+
+nav:
+  - Home: index.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["source"]
+  - api-autonav:
+      modules:
+        - "source/data_acquisition"
+        - "source/feature_extraction"
+        - "source/frontend"
+        - "source/label_extraction"
+        - "source/training"
+      nav_item_prefix: ""
+      nav_section_title: "API Reference"
+
+markdown_extensions:
+  - pymdownx.superfences
+#  - mkdocs-click
+

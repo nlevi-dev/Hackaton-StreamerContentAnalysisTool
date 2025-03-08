@@ -16,19 +16,50 @@ path = sys.argv[1]
 debug = "--debug" in sys.argv
 
 def pickle_load(path):
-    with open(path,'rb') as f:
+    """Load an object from a pickle file.
+
+    Args:
+        path (str): The file path to the pickle file.
+
+    Returns:
+        object: The object loaded from the pickle file.
+    """
+    with open(path, 'rb') as f:
         ret = pickle.load(f)
     return ret
 
 def pickle_save(path, obj):
-    with open(path,'wb') as f:
-        pickle.dump(obj,f)
+    """Save an object to a pickle file.
+
+    Args:
+        path (str): The file path where the object will be saved.
+        obj (object): The object to be saved to the pickle file.
+    """
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f)
 
 def text_save(path, txt):
-    with open(path,'w') as f:
+    """Save text to a file.
+
+    Args:
+        path (str): The file path where the text will be saved.
+        txt (str): The text content to be written to the file.
+    """
+    with open(path, 'w') as f:
         f.write(txt)
 
 def get_closest_idx(items, candidate):
+    """Find the index of the item in a list that is closest to a candidate string.
+
+    Uses the Jaro-Winkler distance metric to determine similarity.
+
+    Args:
+        items (list of str): A list of strings to compare against.
+        candidate (str): The string to compare with the list items.
+
+    Returns:
+        int: The index of the item in the list that is most similar to the candidate.
+    """
     m = 0
     ret_idx = 0
     idx = 0
@@ -41,8 +72,19 @@ def get_closest_idx(items, candidate):
     return ret_idx
 
 def generate_onehot(items):
-    prepromt = "Answer from the following list with only using a word from it ["+",".join(items)+"]!"
-    closest = lambda a:get_closest_idx(items,a)
+    """Generate a one-hot encoding prompt and a function to find the closest item.
+
+    Constructs a prompt for selecting an item from a list and provides a function
+    to find the closest item to a given input using the Jaro-Winkler distance.
+
+    Args:
+        items (list of str): A list of items to include in the prompt.
+
+    Returns:
+        tuple: A tuple containing the prompt string and a function to find the closest item.
+    """
+    prepromt = "Answer from the following list with only using a word from it [" + ",".join(items) + "]!"
+    closest = lambda a: get_closest_idx(items, a)
     return (prepromt, closest)
 
 preprompts = {
@@ -55,6 +97,32 @@ preprompts = {
 }
 
 def get_preprompt(key):
+    """Get the pre-prompt and processing function for a given key.
+
+    This function retrieves a pre-prompt string and a corresponding processing function
+    based on the provided key. The key can be either a string representing a data type
+    or a list of strings for generating a one-hot encoding prompt.
+
+    Args:
+        key (Union[str, list]): The key to look up the pre-prompt and processing function.
+            - If the key is a string, it should be one of the predefined data types in `preprompts`.
+            - If the key is a list, it should contain strings representing the items for one-hot encoding.
+
+    Returns:
+        tuple: A tuple containing:
+            - str: The pre-prompt string.
+            - function: The processing function to handle the response.
+
+    Raises:
+        Exception: If the key is neither a string nor a list.
+
+    Examples:
+        >>> get_preprompt("int")
+        ("Answer with a single integer number!", <function <lambda> at 0x...>)
+
+        >>> get_preprompt(["low", "medium", "high"])
+        ("Answer from the following list with only using a word from it [low,medium,high]!", <function <lambda> at 0x...>)
+    """
     if isinstance(key, str):
         return preprompts[key]
     if isinstance(key, list):
@@ -125,12 +193,40 @@ pipe = pipeline("image-text-to-text", model="llava-hf/llava-v1.6-mistral-7b-hf",
 pipe.model = torch.compile(pipe.model, mode="max-autotune")
 
 def prompt(image_path, prompts):
+    """
+    Generate responses for a given image based on a list of prompts.
+
+    This function takes an image path and a list of prompts, constructs messages
+    for each prompt, and uses a pre-trained image-text model to generate responses.
+    The responses are then processed and returned.
+
+    Args:
+        image_path (str): The file path to the image to be analyzed.
+        prompts (list[tuple]): A list of tuples where each tuple contains:
+            - A string representing the data type (e.g., "int", "bool", "list[str]").
+            - A string describing the specific information to extract from the image.
+
+    Returns:
+        list: A list of extracted information corresponding to each prompt, processed
+        by the image-text model.
+
+    Example:
+        >>> image_path = '/path/to/image.jpg'
+        >>> prompts = [("int", "How many people are in the image?"),
+                       ("bool", "Is there a computer visible in the image?")]
+        >>> prompt(image_path, prompts)
+        [3, True]
+
+    Notes:
+        - The function assumes the use of a pre-trained image-text model for generating responses.
+        - The model is expected to be initialized and available as a global variable `pipe`.
+    """
     messages = []
     pres = []
     for prompt in prompts:
         pre = get_preprompt(prompt[0])
         pres.append(pre[1])
-        txt = pre[0]+' '+prompt[1]
+        txt = pre[0] + ' ' + prompt[1]
         messages.append([
             {
                 "role": "user",
@@ -162,6 +258,34 @@ if debug:
     pd.set_option('display.width',os.get_terminal_size().columns)
     os.makedirs(path+"/feature_video_debug", exist_ok=True)
 def ljust(s):
+    """
+    Left-justify the strings in a pandas Series.
+
+    This function takes a pandas Series of strings, strips any leading or trailing
+    whitespace from each string, and then left-justifies each string to the length
+    of the longest string in the Series.
+
+    Args:
+        s (pd.Series): A pandas Series containing strings to be left-justified.
+
+    Returns:
+        pd.Series: A pandas Series with each string left-justified to the length
+        of the longest string in the original Series.
+
+    Example:
+        >>> import pandas as pd
+        >>> s = pd.Series(['apple', 'banana', 'cherry'])
+        >>> ljust(s)
+        0     apple
+        1    banana
+        2    cherry
+        dtype: object
+
+    Notes:
+        - The function assumes that the input Series contains only string data.
+        - Leading and trailing whitespace is removed from each string before
+          left-justifying.
+    """
     s = s.astype(str).str.strip()
     return s.str.ljust(s.str.len().max())
 

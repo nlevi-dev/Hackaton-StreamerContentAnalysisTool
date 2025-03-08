@@ -7,15 +7,27 @@ import multiprocessing
 # Function to process video files
 def process_videos(base_dir, video_resolution, video_fps):
     """
-    Process video files in the specified base directory.
+    Processes video files in the specified base directory by extracting images and audio.
 
-    This function extracts images from video files at a specified resolution and frame rate,
-    and extracts audio to MP3 format. It also sets permissions for the extracted files.
+    This function performs the following operations on video files found within the specified
+    base directory:
+    1. Extracts images from video files at a specified resolution and frame rate.
+    2. Extracts audio tracks and converts them to MP3 format.
+    3. Sets appropriate permissions for the extracted files to ensure accessibility.
 
-    Parameters:
-    base_dir (str): The base directory containing video directories.
-    video_resolution (str): The resolution for the extracted images in WxH format.
-    video_fps (str): The frames per second for image extraction.
+    Args:
+        base_dir (str): The base directory containing subdirectories with video files.
+        video_resolution (str): The resolution for the extracted images in the format 'WxH'.
+        video_fps (str): The frame rate for image extraction, specified as frames per second.
+
+    The function iterates over each subdirectory within the base directory, processes each video
+    file by extracting images and audio, and saves them in designated directories. It also ensures
+    that the extracted files have the correct permissions set for user, group, and others.
+
+    Example:
+        >>> process_videos('/path/to/base_dir', '1920x1080', '30')
+        This will process all video files in '/path/to/base_dir', extracting images at 1920x1080
+        resolution and 30 frames per second, and converting audio to MP3 format.
     """
     audio_files = []
     for video_dir in [f.path for f in os.scandir(base_dir) if f.is_dir()]:
@@ -67,13 +79,24 @@ def process_videos(base_dir, video_resolution, video_fps):
 
 def process_audio(inputs):
     """
-    Process audio extraction from video files.
+    Extract and process audio from video files.
 
-    This function extracts audio from video files and converts it to MP3 format.
-    It also sets permissions for the extracted audio files.
+    This function uses FFmpeg to extract audio tracks from video files and convert them into MP3 format.
+    It ensures that the audio files are saved with appropriate permissions for further use.
 
-    Parameters:
-    inputs (tuple): A tuple containing the input video file path and the output audio file path.
+    Args:
+        inputs (tuple): A tuple containing:
+            audio_in (str): The file path to the input video file from which audio is to be extracted.
+            audio_out (str): The file path where the extracted audio in MP3 format will be saved.
+
+    Steps:
+        1. Extracts the audio from the specified video file.
+        2. Converts the extracted audio to MP3 format with a sample rate of 44100 Hz and mono channel.
+        3. Sets the file permissions to allow read, write, and execute for the user, group, and others.
+
+    Example:
+        >>> process_audio(('/path/to/video.mp4', '/path/to/output.mp3'))
+        This will extract the audio from 'video.mp4' and save it as 'output.mp3'.
     """
     audio_in, audio_out = inputs
     print(f"Processing audio: {audio_out}")

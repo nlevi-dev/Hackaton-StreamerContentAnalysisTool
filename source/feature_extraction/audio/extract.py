@@ -35,6 +35,34 @@ pipe = pipeline(
 )
 
 def transcribe_audio(input_file):
+    """Transcribe audio from a file and return a log of words with timestamps.
+
+    This function processes an audio file by loading it, resampling it to a target
+    sample rate, and splitting it into 10-minute segments. Each segment is then
+    transcribed using a speech recognition pipeline, and the transcriptions are
+    logged with their respective start and end timestamps.
+
+    Args:
+        input_file (str): The path to the audio file to be transcribed.
+
+    Returns:
+        str: A log file as a string, where each line contains a word from the
+        transcription along with its start and end timestamps in the format:
+        "Word: '<word>' | Start: <start_time>s | End: <end_time>s".
+
+    Example:
+        Given an audio file, the function will return a string like:
+        "Word: 'Hello' | Start: 0.00s | End: 0.50s\n
+         Word: 'world' | Start: 0.51s | End: 1.00s\n
+         Word: '!' | Start: 1.01s | End: 1.10s\n"
+
+    Notes:
+        - The audio is resampled to 16 kHz before processing.
+        - The function handles audio files of arbitrary length by processing
+          them in 10-minute segments.
+        - If no timestamps are available for a segment, a message is logged
+          indicating the absence of timestamps.
+    """
     audio, _ = librosa.load(input_file, sr=44100)
     audio_16k = librosa.resample(audio, orig_sr=44100, target_sr=16000)
     
@@ -73,6 +101,32 @@ del processor
 del model
 
 def to_sentences(file_path):
+    """Converts a log file of transcribed words with timestamps into sentences.
+
+    This function processes a string containing lines of transcribed words, each with
+    associated start and end timestamps, and groups them into sentences. Sentences are
+    determined based on sentence-ending punctuation marks (e.g., '.', '!', '?'). Each
+    sentence is returned with its start and end timestamps.
+
+    Args:
+        file_path (str): A string representation of the file content, where each line
+            contains a word with its start and end timestamps in the format:
+            "Word: '<word>' | Start: <start_time>s | End: <end_time>s".
+
+    Returns:
+        str: A formatted string where each line represents a sentence with its start
+        and end timestamps in the format:
+        "[<start_time> - <end_time>] <sentence>"
+
+    Example:
+        Given a file content:
+        "Word: 'Hello' | Start: 0.00s | End: 0.50s\n
+         Word: 'world' | Start: 0.51s | End: 1.00s\n
+         Word: '!' | Start: 1.01s | End: 1.10s\n"
+
+        The function will return:
+        "[0.00 - 1.10] Hello world !\n"
+    """
     lines = file_path.split("\n")
 
     sentences = []
@@ -118,6 +172,19 @@ model = AutoModelForSequenceClassification.from_pretrained(model_name)
 model.to("cuda")
 
 def predict_sentiment(text):
+    """Predicts the sentiment of a given text.
+
+    This function uses a pre-trained sentiment analysis model to predict the sentiment
+    of the input text. The text is tokenized and processed through the model, and the
+    sentiment is determined based on the highest probability class.
+
+    Args:
+        text (str): The input text for which sentiment needs to be predicted.
+
+    Returns:
+        int: The predicted sentiment class index. Typically, this index corresponds to
+        a specific sentiment category, such as positive, negative, or neutral.
+    """
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512).to("cuda")
     with torch.no_grad():
         outputs = model(**inputs)
@@ -125,6 +192,20 @@ def predict_sentiment(text):
     return torch.argmax(probabilities, dim=-1).item()
 
 def add_sentiment(file_path):
+    """Adds sentiment analysis to each sentence in a file.
+
+    This function processes a file containing sentences with timecodes, predicts the
+    sentiment for each sentence, and returns an array with the start time, end time,
+    sentiment, and the sentence itself.
+
+    Args:
+        file_path (str): The path to the file containing sentences with timecodes.
+
+    Returns:
+        np.ndarray: A numpy array where each row contains the start time, end time,
+        predicted sentiment, and the sentence. The sentiment is represented as an
+        integer index corresponding to a sentiment category.
+    """
     lines = file_path.split("\n")
 
     result = []
@@ -138,7 +219,7 @@ def add_sentiment(file_path):
         start = int(float(start))
         end = int(float(end))
         sentiment = predict_sentiment(sentence)
-        result.append([start,end,sentiment,sentence])
+        result.append([start, end, sentiment, sentence])
     return np.array(result)
 
 print("stage3")
@@ -183,19 +264,50 @@ for i in range(END//STEP):
     chunks.append(chunk)
 
 def pickle_load(path):
-    with open(path,'rb') as f:
+    """Load an object from a pickle file.
+
+    Args:
+        path (str): The file path to the pickle file.
+
+    Returns:
+        object: The object loaded from the pickle file.
+    """
+    with open(path, 'rb') as f:
         ret = pickle.load(f)
     return ret
 
 def pickle_save(path, obj):
-    with open(path,'wb') as f:
-        pickle.dump(obj,f)
+    """Save an object to a pickle file.
+
+    Args:
+        path (str): The file path where the object will be saved.
+        obj (object): The object to be saved to the pickle file.
+    """
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f)
 
 def text_save(path, txt):
-    with open(path,'w') as f:
+    """Save text to a file.
+
+    Args:
+        path (str): The file path where the text will be saved.
+        txt (str): The text content to be written to the file.
+    """
+    with open(path, 'w') as f:
         f.write(txt)
 
 def get_closest_idx(items, candidate):
+    """Find the index of the item in a list that is closest to a candidate string.
+
+    Uses the Jaro-Winkler distance metric to determine similarity.
+
+    Args:
+        items (list of str): A list of strings to compare against.
+        candidate (str): The string to compare with the list items.
+
+    Returns:
+        int: The index of the item in the list that is most similar to the candidate.
+    """
     m = 0
     ret_idx = 0
     idx = 0
@@ -208,8 +320,19 @@ def get_closest_idx(items, candidate):
     return ret_idx
 
 def generate_onehot(items):
-    prepromt = "Answer from the following list with only using a word from it ["+",".join(items)+"]!"
-    closest = lambda a:get_closest_idx(items,a)
+    """Generate a one-hot encoding prompt and a function to find the closest item.
+
+    Constructs a prompt for selecting an item from a list and provides a function
+    to find the closest item to a given input using the Jaro-Winkler distance.
+
+    Args:
+        items (list of str): A list of items to include in the prompt.
+
+    Returns:
+        tuple: A tuple containing the prompt string and a function to find the closest item.
+    """
+    prepromt = "Answer from the following list with only using a word from it [" + ",".join(items) + "]!"
+    closest = lambda a: get_closest_idx(items, a)
     return (prepromt, closest)
 
 preprompts = {
@@ -318,6 +441,34 @@ pipe = pipeline(
 # prompts = prompts[0:10]
 
 def prompt(chunk, prompts):
+    """Processes a transcript chunk with specified prompts to extract information.
+
+    This function takes a chunk of transcript text and a list of prompts, then
+    constructs messages for a text generation model to extract specific information
+    from the transcript. The function uses a pre-defined pipeline to process these
+    messages and returns the extracted results.
+
+    Args:
+        chunk (str): A segment of transcript text from a LinusTechTips video, typically
+            involving computer building activities.
+        prompts (list[tuple]): A list of tuples where each tuple contains:
+            - A string representing the data type (e.g., "int").
+            - A string describing the specific information to extract from the transcript.
+
+    Returns:
+        list: A list of extracted information corresponding to each prompt, processed
+        by the text generation model.
+
+    Example:
+        >>> chunk = "In this step, we install the CPU cooler."
+        >>> prompts = [("int", "How many times do they use words like 'step,' 'next,' or 'now we'?")]
+        >>> prompt(chunk, prompts)
+        [2]
+
+    Notes:
+        - The function assumes the use of a pre-trained language model for text generation.
+        - The model is expected to be initialized and available as a global variable `pipe`.
+    """
     messages = []
     pres = []
     for prompt in prompts:
@@ -327,12 +478,12 @@ def prompt(chunk, prompts):
         txt += "Given the following transcript from a LinusTechTips video, where they are usually building computers, extract "
         txt += prompt[1]
         txt += "and "
-        txt += pre[0]+"\n"
-        txt += chunk+"\n"
-        txt += pre[0]+" "+prompt[1]
+        txt += pre[0] + "\n"
+        txt += chunk + "\n"
+        txt += pre[0] + " " + prompt[1]
         messages.append([
-            {"role":"system","content":"You are a data processing agent. You extract information from provided transcripts, which are wrapped in quotes."},
-            {"role":"user","content":txt},
+            {"role": "system", "content": "You are a data processing agent. You extract information from provided transcripts, which are wrapped in quotes."},
+            {"role": "user", "content": txt},
         ])
     results = pipe(messages, batch_size=len(prompts), max_new_tokens=10)
     for i in range(len(results)):
@@ -349,6 +500,33 @@ if debug:
     pd.set_option('display.width',os.get_terminal_size().columns)
     os.makedirs(pat+"/feature_audio_debug", exist_ok=True)
 def ljust(s):
+    """Left-justify the strings in a pandas Series.
+
+    This function takes a pandas Series of strings, strips any leading or trailing
+    whitespace from each string, and then left-justifies each string to the length
+    of the longest string in the Series.
+
+    Args:
+        s (pd.Series): A pandas Series containing strings to be left-justified.
+
+    Returns:
+        pd.Series: A pandas Series with each string left-justified to the length
+        of the longest string in the original Series.
+
+    Example:
+        >>> import pandas as pd
+        >>> s = pd.Series(['apple', 'banana', 'cherry'])
+        >>> ljust(s)
+        0     apple
+        1    banana
+        2    cherry
+        dtype: object
+
+    Notes:
+        - The function assumes that the input Series contains only string data.
+        - Leading and trailing whitespace is removed from each string before
+          left-justifying.
+    """
     s = s.astype(str).str.strip()
     return s.str.ljust(s.str.len().max())
 

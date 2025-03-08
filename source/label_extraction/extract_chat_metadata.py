@@ -6,15 +6,73 @@ import datetime
 import glob 
 
 def convert_usec_to_seconds(timestamp_usec):
-    """ Converts microseconds to seconds and returns an integer. """
+    """Converts a timestamp from microseconds to seconds.
+
+    This function converts a given timestamp from microseconds to seconds by
+    performing an integer division by 1,000,000. If the input is not a valid
+    integer or cannot be converted to an integer, the function returns None.
+
+    Args:
+        timestamp_usec (Union[int, str]): The timestamp in microseconds. It can be
+            provided as an integer or a string that represents an integer.
+
+    Returns:
+        Optional[int]: The timestamp converted to seconds as an integer. If the
+        input is invalid, returns None.
+
+    Raises:
+        ValueError: If the input cannot be converted to an integer.
+        TypeError: If the input is of an unsupported type.
+
+    Examples:
+        >>> convert_usec_to_seconds(1000000)
+        1
+        >>> convert_usec_to_seconds('2000000')
+        2
+        >>> convert_usec_to_seconds('invalid')
+        None
+    """
     try:
         var = int(timestamp_usec) // 1000000 
         return var  # Convert µs to seconds
     except (ValueError, TypeError):
         return None
 
-
 def calculate_message_rate(df: pd.DataFrame, min_time: int, max_time: int, window_length: int = 60) -> list[dict]:
+    """
+    Calculate the message rate, distinct author rate, and active user rate for chat messages.
+
+    This function calculates the rate of messages, the rate of distinct authors, and the active user rate
+    within specified time windows. The rates are calculated by dividing the total time into buckets of
+    a given window length and counting the number of messages and distinct authors in each bucket.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing chat messages with columns "times" and "author".
+        min_time (int): The minimum timestamp in seconds.
+        max_time (int): The maximum timestamp in seconds.
+        window_length (int, optional): The length of each time window in seconds. Defaults to 60 seconds.
+
+    Returns:
+        list[dict]: A list containing three dictionaries:
+            - message_rate: A dictionary where keys are bucket start times and values are the number of messages.
+            - distinct_author_rate: A dictionary where keys are bucket start times and values are the number of distinct authors.
+            - active_user_rates: A dictionary where keys are bucket start times and values are the active user rates.
+
+    Example:
+        >>> df = pd.DataFrame({
+        ...     "times": [0, 30, 60, 90, 120],
+        ...     "author": ["user1", "user2", "user1", "user3", "user2"]
+        ... })
+        >>> min_time = 0
+        >>> max_time = 120
+        >>> window_length = 60
+        >>> calculate_message_rate(df, min_time, max_time, window_length)
+        (
+            {0: 2, 60: 2},
+            {0: 2, 60: 2},
+            {0: 1.0, 60: 1.0}
+        )
+    """
     total_time = max_time - min_time
     bucket_number = total_time // window_length
 
@@ -39,6 +97,39 @@ def calculate_message_rate(df: pd.DataFrame, min_time: int, max_time: int, windo
         
 
 def calculate_donation_rates(df: pd.DataFrame, min_time: int, max_time: int, window_length: int = 60) -> list[dict]:
+    """
+    Calculate the donation amount rate and donation rate for chat messages.
+
+    This function calculates the rate of donation amounts and the rate of donations
+    within specified time windows. The rates are calculated by dividing the total time
+    into buckets of a given window length and summing the donation amounts and counting
+    the number of donations in each bucket.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing donation messages with columns "times" and "donationAmount".
+        min_time (int): The minimum timestamp in seconds.
+        max_time (int): The maximum timestamp in seconds.
+        window_length (int, optional): The length of each time window in seconds. Defaults to 60 seconds.
+
+    Returns:
+        list[dict]: A list containing two dictionaries:
+            - donation_amount_rates: A dictionary where keys are bucket start times and values are the sum of donation amounts.
+            - donation_rates: A dictionary where keys are bucket start times and values are the number of donations.
+
+    Example:
+        >>> df = pd.DataFrame({
+        ...     "times": [0, 30, 60, 90, 120],
+        ...     "donationAmount": [5, 10, 0, 20, 15]
+        ... })
+        >>> min_time = 0
+        >>> max_time = 120
+        >>> window_length = 60
+        >>> calculate_donation_rates(df, min_time, max_time, window_length)
+        (
+            {0: 15, 60: 35},
+            {0: 2, 60: 2}
+        )
+    """
     total_time = max_time - min_time
     bucket_number = total_time // window_length
 
@@ -57,9 +148,24 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
     """
     Extract chat messages and donation data from a JSON file and save them as a CSV.
 
-    Parameters:
-    - json_file: Path to the input JSON file.
-    - output_json: Path to the output JSON file.
+    This function processes a JSON file containing chat messages and donation data,
+    extracts relevant information, calculates message and donation rates, and saves
+    the results as a CSV file. Optionally, it can also include metadata from an
+    additional JSON file to compute a weighted score.
+
+    Args:
+        json_file (str): Path to the input JSON file containing chat messages and donation data.
+        output_json (str): Path to the output JSON file where extracted data will be saved.
+        window_length (int): The length of each time window in seconds for calculating rates.
+        metadata_path (str, optional): Path to an additional JSON file containing metadata for computing a weighted score. Defaults to None.
+        save_folder (str, optional): Path to the folder where the output CSV file will be saved. Defaults to None.
+
+    Returns:
+        None
+
+    Example:
+        >>> create_metadata_json("input.json", "output.json", 60, "metadata.json", "processed")
+        This will process the input JSON file, calculate rates, and save the results as a CSV file in the "processed" folder.
     """
     if not os.path.exists(json_file):
         print(f"Error: File '{json_file}' not found.")
@@ -201,6 +307,25 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
 
 
 def main():
+    """
+    Main function to extract chat metadata from JSON files and save it as cleaned JSON and CSV files.
+
+    This function processes all numbered folders inside the specified base directory, extracts chat messages
+    and donation data from JSON files, calculates message and donation rates, and saves the results as cleaned
+    JSON and CSV files. Optionally, it can also include metadata from an additional JSON file to compute a
+    weighted score.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Example:
+        >>> main()
+        This will process all numbered folders inside the base directory, extract chat messages and donation data,
+        calculate rates, and save the results as cleaned JSON and CSV files.
+    """
     parser = argparse.ArgumentParser(description="Extract chat metadata from JSON and save it as a cleaned JSON.")
     parser.add_argument("base_directory", type=str, help="Path to the base directory containing numbered folders")
     parser.add_argument("-wl", type=int, default=20, help="Length of window for calculating rates")
