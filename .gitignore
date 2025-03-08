@@ -6,6 +6,8 @@ data
 test
 yolo11x.pt
  
+*.ldb
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

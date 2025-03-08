@@ -81,6 +81,8 @@ def to_sentences(file_path):
     end_time = None
 
     for line in lines:
+        if len(line) == 0:
+            continue
         match = re.match(r"Word: '(.+?)' \| Start: ([\d.]+)s \| End: ([\d.]+)s", line)
         if match:
             word, start, end = match.groups()
@@ -127,6 +129,8 @@ def add_sentiment(file_path):
 
     result = []
     for line in lines:
+        if len(line) == 0:
+            continue
         # Extract the sentence part (assuming timecode is at the start)
         timecode, sentence = line.split(']', 1)
         sentence = sentence.strip()
@@ -138,7 +142,7 @@ def add_sentiment(file_path):
     return np.array(result)
 
 print("stage3")
-result = add_sentiment("stage2.txt")
+result = add_sentiment(output_file)
 np.save(path[:-4]+"_audio_raw.npy",result)
 del model
 del tokenizer
