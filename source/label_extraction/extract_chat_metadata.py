@@ -160,7 +160,6 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
     )
  
     df2.index = df2.index - min_time
-    df2.to_csv(labels_csv_path)
 
     print(f"Labels saved to {labels_csv_path}")
 
@@ -187,7 +186,7 @@ def create_metadata_json(json_file, output_json, window_length, metadata_path=No
     else:
         df2["score"] = 0.8 * df2["message_rate"] + 0.2 * df2["donation_rate"]
     
-    df2.to_csv(processed_dir + "/df2.csv")
+    df2.to_csv(labels_csv_path)
     # Find the time steps with the highest score
     biggest_rows = df2.nlargest(5, "score")
 
