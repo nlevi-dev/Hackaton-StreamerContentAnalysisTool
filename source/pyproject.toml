@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "source"
+version = "0.1.0"
+description = ""
+authors = ["Agata Mosinska <mosinskaagata@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pandas = "^2.2.3"
+streamlit = "^1.43.1"
+plotly = "^6.0.0"
+scipy = "^1.15.2"
+streamlit-plotly-events = "^0.0.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
