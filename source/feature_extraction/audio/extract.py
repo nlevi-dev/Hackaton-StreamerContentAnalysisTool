@@ -126,19 +126,16 @@ def add_sentiment(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
-    # Open the output file to write the results
-    with open('stage3.txt', 'w') as output_file:
-        # Process each line to predict sentiment and append it
-        result = []
-        for line in lines:
-            # Extract the sentence part (assuming timecode is at the start)
-            timecode, sentence = line.split(']', 1)
-            sentence = sentence.strip()
-            start, end = timecode[1:].split(' - ')
-            start = int(float(start))
-            end = int(float(end))
-            sentiment = predict_sentiment(sentence)
-            result.append([start,end,sentiment,sentence])
+    result = []
+    for line in lines:
+        # Extract the sentence part (assuming timecode is at the start)
+        timecode, sentence = line.split(']', 1)
+        sentence = sentence.strip()
+        start, end = timecode[1:].split(' - ')
+        start = int(float(start))
+        end = int(float(end))
+        sentiment = predict_sentiment(sentence)
+        result.append([start,end,sentiment,sentence])
     return np.array(result)
 
 print("stage3")
@@ -339,7 +336,7 @@ def prompt(chunk, prompts):
     results = pipe(messages, batch_size=len(prompts), max_new_tokens=10)
     for i in range(len(results)):
         results[i] = pres[i](results[i][0]['generated_text'][-1]["content"])
-        print(prompts[i][1]+": "+str(results[i]))
+        # print(prompts[i][1]+": "+str(results[i]))
     return results
 
 idx = path.rfind("/")
