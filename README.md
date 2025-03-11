@@ -1,6 +1,3 @@
-# ByborgHackathon
-Codebase for the 24H Byborg AI Hackathon
-
 # Streamer Content Analysis Tool  
 
 ## Overview  
@@ -123,7 +120,7 @@ This script processes chat data from JSON files, extracts messages and donation 
 ##### Usage  
 Run the script from the command line:  
 ```bash
-python script.py base_directory [-wl WINDOW_LENGTH]
+python extract_chat_metadata.py base_directory [-wl WINDOW_LENGTH]
 ```
 ##### Features
 - Chat message and donation extraction: Converts raw chat logs into structured JSON format.
